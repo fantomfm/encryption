@@ -1,0 +1,34 @@
+{
+    "name": "fantomfm/whatsapp-encryption",
+    "description": "PSR-7 stream encryption/decryption implementing WhatsApp encryption protocol",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["psr-7", "stream", "encryption", "whatsapp"],
+    "homepage": "https://github.com/fantomfm/encryption", 
+    "authors": [
+        {
+            "name": "Senotrusov Kirill",
+            "email": "fantomfg@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^8.1",
+        "psr/http-message": "^1.0",
+        "ext-openssl": "*",
+        "ext-hash": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.5",
+        "guzzlehttp/psr7": "^2.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "Encryption\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "EncryptionTest\\": "tests/"
+        }
+    }
+}
