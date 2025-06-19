@@ -7,7 +7,7 @@ namespace Encryption\Interface;
 use Encryption\Enum\MediaType;
 use Encryption\Exception\InvalidMacException;
 
-interface EncryptionInterface
+interface EncryptorInterface
 {
     public function encrypt(string $data, string $mediaKey, MediaType $mediaType): string;
 

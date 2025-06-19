@@ -8,9 +8,9 @@ use Encryption\Enum\MediaType;
 use Encryption\Exception\DecryptionException;
 use Encryption\Exception\EncryptionException;
 use Encryption\Exception\InvalidMacException;
-use Encryption\Interface\EncryptionInterface;
+use Encryption\Interface\EncryptorInterface;
 
-class WhatsAppEncryption implements EncryptionInterface
+class WhatsAppEncryptor implements EncryptorInterface
 {
     private const BLOCK_SIZE = 16; // AES block size in bytes
     private const MAC_LENGTH = 10;
@@ -55,7 +55,7 @@ class WhatsAppEncryption implements EncryptionInterface
         if (strlen($data) < self::MAC_LENGTH) {
             throw new \InvalidArgumentException('The data is too short to extract MAC');
         }
-        
+
         // Extending the key to 112 bytes using HKDF
         $mediaKeyExpanded = $this->expandMediaKey($mediaKey, $mediaType);
 
@@ -111,16 +111,16 @@ class WhatsAppEncryption implements EncryptionInterface
         // }
 
         // return $sidecar;
-        
+
         return '';
     }
 
-    private function expandMediaKey(string $mediaKey, MediaType $mediaType): string
+    private function expandMediaKey(string $mediaKey, MediaType $mediaType): false|string
     {
         if (strlen($mediaKey) !== 32) {
             throw new \InvalidArgumentException('mediaKey must be 32 bytes long');
         }
-        
+
         return hash_hkdf(
             'sha256',
             $mediaKey,
@@ -140,7 +140,7 @@ class WhatsAppEncryption implements EncryptionInterface
         $iv = substr($expandedKey, 0, 16);               // 16 bytes
         $cipherKey = substr($expandedKey, 16, 32);       // 32 bytes
         $macKey = substr($expandedKey, 48, 32);          // 32 bytes
-        
+
         return [$iv, $cipherKey, $macKey];
     }
 
