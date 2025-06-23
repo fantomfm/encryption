@@ -9,6 +9,7 @@ use Encryption\Exception\DecryptionException;
 use Encryption\Exception\EncryptionException;
 use Encryption\Exception\InvalidMacException;
 use Encryption\Interface\EncryptorInterface;
+use InvalidArgumentException;
 
 class WhatsAppEncryptor implements EncryptorInterface
 {
@@ -53,7 +54,7 @@ class WhatsAppEncryptor implements EncryptorInterface
     public function decrypt(string $data, string $mediaKey, MediaType $mediaType): string
     {
         if (strlen($data) < self::MAC_LENGTH) {
-            throw new \InvalidArgumentException('The data is too short to extract MAC');
+            throw new InvalidArgumentException('The data is too short to extract MAC');
         }
 
         // Extending the key to 112 bytes using HKDF
@@ -68,6 +69,10 @@ class WhatsAppEncryptor implements EncryptorInterface
         // Split encrypted data and MAC
         $mac = substr($data, -self::MAC_LENGTH);
         $file = substr($data, 0, -self::MAC_LENGTH);
+
+        if (strlen($file) % self::BLOCK_SIZE !== 0) {
+            throw new DecryptionException('Encrypted data length must be a multiple of block size');
+        }
 
         $calculatedHmac = hash_hmac('sha256', $iv . $file, $macKey, true);
         $calculatedMac = substr($calculatedHmac, 0, self::MAC_LENGTH);
@@ -118,7 +123,7 @@ class WhatsAppEncryptor implements EncryptorInterface
     private function expandMediaKey(string $mediaKey, MediaType $mediaType): false|string
     {
         if (strlen($mediaKey) !== 32) {
-            throw new \InvalidArgumentException('mediaKey must be 32 bytes long');
+            throw new InvalidArgumentException('mediaKey must be 32 bytes long');
         }
 
         return hash_hkdf(
@@ -132,7 +137,7 @@ class WhatsAppEncryptor implements EncryptorInterface
     private function splitExpandedKey(string $expandedKey): array
     {
         if (strlen($expandedKey) !== self::KEY_EXPANSION_LENGTH) {
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 sprintf("Expanded key must be %s bytes long", self::KEY_EXPANSION_LENGTH)
             );
         }
@@ -154,12 +159,20 @@ class WhatsAppEncryptor implements EncryptorInterface
     private function removePadding(string $data): string
     {
         $length = strlen($data);
-        $pad = ord($data[$length - 1]);
+        if ($length === 0) {
+            throw new DecryptionException('Data is empty');
+        }
 
-        if ($pad > self::BLOCK_SIZE) {
+        $padLength = ord($data[$length - 1]);
+        if ($padLength > self::BLOCK_SIZE || $padLength <= 0) {
             throw new DecryptionException('Incorrect PKCS#7 padding');
         }
 
-        return substr($data, 0, $length - $pad);
+        $padding = substr($data, -$padLength);
+        if ($padding !== str_repeat(chr($padLength), $padLength)) {
+            throw new DecryptionException('Invalid padding bytes');
+        }
+
+        return substr($data, 0, $length - $padLength);
     }
 }
