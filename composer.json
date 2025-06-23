@@ -1,6 +1,6 @@
 {
-    "name": "fantomfm/whatsapp-encryption",
-    "description": "PSR-7 stream encryption/decryption implementing WhatsApp encryption protocol",
+    "name": "fantomfm/encryption",
+    "description": "PSR-7 stream encryption/decryption",
     "type": "library",
     "license": "MIT",
     "keywords": ["psr-7", "stream", "encryption", "whatsapp"],
@@ -18,7 +18,7 @@
         "ext-hash": "*"
     },
     "require-dev": {
-        "phpunit/phpunit": "^9.5",
+        "phpunit/phpunit": "^9.6",
         "guzzlehttp/psr7": "^2.1"
     },
     "autoload": {
