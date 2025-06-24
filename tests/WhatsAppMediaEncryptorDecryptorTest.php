@@ -6,13 +6,12 @@ use PHPUnit\Framework\TestCase;
 use Encryption\WhatsApp\WhatsAppMediaEncryptor;
 use Encryption\WhatsApp\WhatsAppMediaDecryptor;
 use Encryption\Enum\MediaType;
-use Encryption\Exception\DecryptionException;
 use Encryption\Exception\InvalidMacException;
+use ReflectionMethod;
 
 final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
 {
     private const TEST_DATA = "Data for WhatsApp decryptor test!";
-    private const CHUNK_SIZE = 8;
     private const MAC_SIZE = 10;
 
     public function testEncryptionAndDecryptionRound(): void
@@ -20,9 +19,8 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
         $mediaKey = random_bytes(32);
         $mediaType = MediaType::DOCUMENT;
 
-        $original = "Data for WhatsApp decryptor test!";
+        $original = self::TEST_DATA;
 
-        // Шифруем
         $encryptor = new WhatsAppMediaEncryptor($mediaKey, $mediaType);
         $iv = $encryptor->start();
 
@@ -31,9 +29,7 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
 
         $fullEncrypted = $iv . $encrypted . $mac;
 
-        // Расшифровываем
         $decryptor = new WhatsAppMediaDecryptor($mediaKey, $mediaType);
-        $decryptor->start(); // проверяет iv
 
         $macOffset = mb_strlen($fullEncrypted, '8bit') - self::MAC_SIZE;
         $dataWithoutMac = substr($fullEncrypted, mb_strlen($iv, '8bit'), $macOffset - mb_strlen($iv, '8bit'));
@@ -42,9 +38,6 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
         $decrypted = '';
         $decrypted .= $decryptor->update($dataWithoutMac);
         $decrypted .= $decryptor->finish($receivedMac);
-
-        file_put_contents(__DIR__ . '/debug_decrypted.bin', $decrypted);
-        file_put_contents(__DIR__ . '/debug_original.bin', $original);
 
         $this->assertEquals($original, $decrypted);
     }
@@ -89,6 +82,23 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
         $this->assertTrue($this->isFinalized($encryptor));
 
         $this->assertSame('', $encryptor->finish());
+    }
+
+    public function testRemovePaddingReturnsEmptyStringWhenGivenFullPaddingBlock(): void
+    {
+        $mediaKey = random_bytes(32);
+        $mediaType = MediaType::DOCUMENT;
+
+        $decryptor = new WhatsAppMediaDecryptor($mediaKey, $mediaType);
+
+        $blockWithPadding = str_repeat("\x10", 16);
+
+        $method = new ReflectionMethod(WhatsAppMediaDecryptor::class, 'removePadding');
+        $method->setAccessible(true);
+
+        $decryptedBlock = $method->invoke($decryptor, $blockWithPadding);
+
+        $this->assertEquals('', $decryptedBlock);
     }
 
     protected function isFinalized(object $object): bool

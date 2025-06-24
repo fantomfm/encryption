@@ -6,13 +6,27 @@ use Encryption\Exception\EncryptionException;
 
 class WhatsAppMediaEncryptor extends WhatsAppMediaCipher
 {
+    private string $buffer = '';
+
     public function update(string $chunk): string
     {
         if ($this->finalized) {
             throw new EncryptionException("Encryption already finalized");
         }
 
-        return $this->encryptChunk($chunk);
+        $this->buffer .= $chunk;
+
+        $len = mb_strlen($this->buffer, '8bit');
+        $blocks = (int)($len / self::BLOCK_SIZE);
+
+        if ($blocks === 0) {
+            return '';
+        }
+
+        $toEncrypt = substr($this->buffer, 0, $blocks * self::BLOCK_SIZE);
+        $this->buffer = substr($this->buffer, $blocks * self::BLOCK_SIZE);
+
+        return $this->encryptChunk($toEncrypt);
     }
 
     public function finish(string $chunk = ''): string
@@ -21,7 +35,16 @@ class WhatsAppMediaEncryptor extends WhatsAppMediaCipher
             return '';
         }
 
-        $encrypted = $this->encryptChunk($chunk);
+        $this->buffer .= $chunk;
+
+//        $data = $chunk !== '' ? $this->addPadding($chunk) : $chunk;
+        $data = $this->addPadding($chunk);
+
+        if ($this->buffer !== '') {
+            $this->buffer = '';
+        }
+
+        $encrypted = $this->encryptChunk($data);
         $this->finalized = true;
 
         $mac = substr(hash_final($this->hmacContext, true), 0, self::MAC_SIZE);
@@ -32,13 +55,21 @@ class WhatsAppMediaEncryptor extends WhatsAppMediaCipher
 
     private function encryptChunk(string $chunk): string
     {
-        $data = $chunk !== '' ? $this->addPadding($chunk) : '';
+        if ($chunk === '') {
+            return '';
+        }
+
+        $len = mb_strlen($chunk, '8bit');
+
+        if ($len % self::BLOCK_SIZE !== 0) {
+            throw new EncryptionException("Data length must be multiple of block size");
+        }
 
         $encrypted = openssl_encrypt(
-            $data,
+            $chunk,
             'AES-256-CBC',
             $this->cipherKey,
-            OPENSSL_RAW_DATA,
+            OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING,
             $this->currentIv
         );
 

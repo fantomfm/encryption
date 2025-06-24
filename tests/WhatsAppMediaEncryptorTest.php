@@ -13,6 +13,8 @@ final class WhatsAppMediaEncryptorTest extends TestCase
 {
     private const KEY_EXPANSION_LENGTH = 112;
     private const MEDIA_TYPE = MediaType::IMAGE;
+    private const BLOCK_SIZE = 16;
+    private const MAC_SIZE = 10;
 
     private MediaCipherInterface $encryptor;
 
@@ -78,7 +80,7 @@ final class WhatsAppMediaEncryptorTest extends TestCase
         $method = new ReflectionMethod(WhatsAppMediaEncryptor::class, 'encryptChunk');
         $method->setAccessible(true);
 
-        $chunk = "test data for encryption";
+        $chunk = str_repeat('a', 16);
         $encrypted = $method->invoke($this->encryptor, $chunk);
 
         $this->assertIsString($encrypted);
@@ -98,7 +100,7 @@ final class WhatsAppMediaEncryptorTest extends TestCase
         $otherEncrypted = new WhatsAppMediaEncryptor(random_bytes(32), MediaType::VIDEO);
         $otherFinal = $otherEncrypted->update($otherData);
         $otherFinal .= $otherEncrypted->finish();
-        
+
         $this->assertNotSame($final, $otherFinal);
     }
 
@@ -115,5 +117,13 @@ final class WhatsAppMediaEncryptorTest extends TestCase
         $this->assertNotEmpty($out1);
         $this->assertNotEmpty($out2);
         $this->assertNotEmpty($out3);
+    }
+
+    public function testFinishWithEmptyChunkAddsPadding(): void
+    {
+        $result = $this->encryptor->finish();
+        $encrypted = substr($result, 0, -self::MAC_SIZE);
+
+        $this->assertEquals(self::BLOCK_SIZE, mb_strlen($encrypted, '8bit'));
     }
 }
