@@ -4,5 +4,5 @@ namespace Encryption\Exception;
 
 use RuntimeException;
 
-class EncryptionException extends RuntimeException
+class StreamException extends RuntimeException
 {}
