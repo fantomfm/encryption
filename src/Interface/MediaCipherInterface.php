@@ -2,7 +2,7 @@
 
 namespace Encryption\Interface;
 
-interface MediaEncryptorInterface
+interface MediaCipherInterface
 {
     public function start(): string;
     public function update(string $chunk): string;
