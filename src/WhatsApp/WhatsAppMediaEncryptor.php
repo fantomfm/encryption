@@ -14,6 +14,10 @@ class WhatsAppMediaEncryptor extends WhatsAppMediaCipher
             throw new EncryptionException("Encryption already finalized");
         }
 
+        if (mb_strlen($this->buffer, '8bit') > 65536) {
+            throw new EncryptionException("Buffer size exceeded maximum limit");
+        }
+
         $this->buffer .= $chunk;
 
         $len = mb_strlen($this->buffer, '8bit');
@@ -35,16 +39,12 @@ class WhatsAppMediaEncryptor extends WhatsAppMediaCipher
             return '';
         }
 
-        $this->buffer .= $chunk;
+        $data = $this->buffer . $chunk;
+        $this->buffer = '';
 
-//        $data = $chunk !== '' ? $this->addPadding($chunk) : $chunk;
-        $data = $this->addPadding($chunk);
+        $padded = $this->addPadding($data);
 
-        if ($this->buffer !== '') {
-            $this->buffer = '';
-        }
-
-        $encrypted = $this->encryptChunk($data);
+        $encrypted = $this->encryptChunk($padded);
         $this->finalized = true;
 
         $mac = substr(hash_final($this->hmacContext, true), 0, self::MAC_SIZE);
@@ -87,9 +87,9 @@ class WhatsAppMediaEncryptor extends WhatsAppMediaCipher
     private function addPadding(string $data): string
     {
         $padLength = self::BLOCK_SIZE - (mb_strlen($data, '8bit') % self::BLOCK_SIZE);
-        if ($padLength === 0) {
-            $padLength = self::BLOCK_SIZE;
-        }
+        // if ($padLength === 0) {
+        //     $padLength = self::BLOCK_SIZE;
+        // }
 
         return $data . str_repeat(chr($padLength), $padLength);
     }

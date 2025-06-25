@@ -126,4 +126,27 @@ final class WhatsAppMediaEncryptorTest extends TestCase
 
         $this->assertEquals(self::BLOCK_SIZE, mb_strlen($encrypted, '8bit'));
     }
+
+    public function testFinalizeOnlyOnce(): void
+    {
+        $mediaKey = random_bytes(32);
+        $encryptor = new WhatsAppMediaEncryptor($mediaKey, MediaType::DOCUMENT);
+
+        $this->assertFalse($this->isFinalized($encryptor));
+
+        $encrypted = $encryptor->update('test');
+        $mac = $encryptor->finish();
+        $this->assertTrue($this->isFinalized($encryptor));
+
+        $this->assertSame('', $encryptor->finish());
+    }
+
+    protected function isFinalized(object $object): bool
+    {
+        $reflection = new \ReflectionClass($object);
+        $property = $reflection->getProperty('finalized');
+        $property->setAccessible(true);
+        
+        return $property->getValue($object);
+    }
 }
