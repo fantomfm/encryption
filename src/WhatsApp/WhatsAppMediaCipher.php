@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Encryption\WhatsApp;
 
 use Encryption\Enum\MediaType;
@@ -74,5 +76,10 @@ abstract class WhatsAppMediaCipher implements MediaCipherInterface
         $macKey = substr($expandedKey, 48, 32);                     // 32 bytes
 
         return [$iv, $cipherKey, $macKey];
+    }
+
+    public function getBlockSize(): int
+    {
+        return self::BLOCK_SIZE;
     }
 }

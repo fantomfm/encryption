@@ -23,13 +23,13 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
 
         $encryptor = new WhatsAppMediaEncryptor($mediaKey, $mediaType);
         $iv = $encryptor->start();
-        
+
         $encrypted = $encryptor->update($original);
         $final = $encryptor->finish(); // Содержит последний блок с padding + MAC
 
         $decryptor = new WhatsAppMediaDecryptor($mediaKey, $mediaType);
         $decryptor->start();
-        
+
         $decrypted = $decryptor->update($encrypted);
         $decrypted .= $decryptor->finish($final);
 
@@ -41,14 +41,14 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
         $mediaKey = random_bytes(32);
         $encryptor = new WhatsAppMediaEncryptor($mediaKey, MediaType::DOCUMENT);
         $iv = $encryptor->start();
-        
+
         $final = $encryptor->finish();
-        
+
         $decryptor = new WhatsAppMediaDecryptor($mediaKey, MediaType::DOCUMENT);
         $decryptor->start();
-        
+
         $decrypted = $decryptor->finish($final);
-        
+
         $this->assertEquals('', $decrypted);
     }
 
@@ -66,7 +66,7 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
         $decryptor->start();
         $decrypted = $decryptor->update($encrypted);
         $decrypted .= $decryptor->finish($final);
-        
+
         $this->assertEquals($original, $decrypted);
     }
 
@@ -84,7 +84,7 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
         $decryptor->start();
         $decrypted = $decryptor->update($encrypted);
         $decrypted .= $decryptor->finish($final);
-        
+
         $this->assertEquals($original, $decrypted);
     }
 
@@ -102,7 +102,7 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
         $decryptor->start();
         $decrypted = $decryptor->update($encrypted);
         $decrypted .= $decryptor->finish($final);
-        
+
         $this->assertEquals($original, $decrypted);
     }
 
@@ -154,15 +154,16 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
         $mediaKey = random_bytes(32);
         $encryptor = new WhatsAppMediaEncryptor($mediaKey, MediaType::DOCUMENT);
         $iv = $encryptor->start();
-        
+
         $final = $encryptor->finish();
-        
+
         $decryptor = new WhatsAppMediaDecryptor($mediaKey, MediaType::DOCUMENT);
         $decryptor->start();
-        
+
         $decrypted = $decryptor->finish($final);
-        
+
         $this->expectException(DecryptionException::class);
+
         $decryptor->update('any data');
     }
 }

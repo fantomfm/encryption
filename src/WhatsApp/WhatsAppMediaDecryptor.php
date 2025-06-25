@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Encryption\WhatsApp;
 
 use Encryption\Exception\DecryptionException;
@@ -68,22 +70,22 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
     private function removePadding(string $data): string
     {
         $len = mb_strlen($data, '8bit');
-        
+
         if ($len === 0 || $len % self::BLOCK_SIZE !== 0) {
             throw new DecryptionException('Invalid data length or padding');
         }
-        
+
         $padLength = ord($data[$len - 1]);
-        
+
         if ($padLength <= 0 || $padLength > self::BLOCK_SIZE) {
             throw new DecryptionException('Invalid padding');
         }
-        
+
         $padding = substr($data, -$padLength);
         if ($padding !== str_repeat(chr($padLength), $padLength)) {
             throw new DecryptionException('Invalid padding bytes');
         }
-        
+
         return substr($data, 0, $len - $padLength);
     }
 
