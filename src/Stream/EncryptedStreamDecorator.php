@@ -77,7 +77,7 @@ class EncryptedStreamDecorator implements StreamInterface
         return false;
     }
 
-    public function seek($offset, $whence = SEEK_SET): void
+    public function seek(int $offset, int $whence = SEEK_SET): void
     {
         throw new RuntimeException('Encrypted stream does not support seeking');
     }
@@ -92,7 +92,7 @@ class EncryptedStreamDecorator implements StreamInterface
         return false;
     }
 
-    public function write($string): int
+    public function write(string $string): int
     {
         throw new RuntimeException('Cannot write to an encrypted read-only stream');
     }
@@ -102,15 +102,15 @@ class EncryptedStreamDecorator implements StreamInterface
         return true;
     }
 
-    public function read($length): string
+    public function read(int $length): string
     {
         if ($this->eof()) {
             return '';
         }
 
-        $readSize = $this->calculateReadSize((int)$length);
+        $readSize = $this->calculateReadSize($length);
 
-        while (strlen($this->buffer) < $length && !$this->sourceEof) {
+        while (mb_strlen($this->buffer, '8bit') < $length && !$this->sourceEof) {
             $chunk = $this->stream->read($readSize);
 
             if ($chunk === '') {
@@ -121,7 +121,7 @@ class EncryptedStreamDecorator implements StreamInterface
             }
         }
 
-        return $this->extractFromBuffer((int)$length);
+        return $this->extractFromBuffer($length);
     }
 
     public function getContents(): string
@@ -130,10 +130,11 @@ class EncryptedStreamDecorator implements StreamInterface
             return '';
         }
 
-        // Small stream optimization
         if ($this->stream->getSize() !== null && $this->stream->getSize() <= $this->chunkSize) {
             $data = $this->stream->getContents();
-            return $this->encryptor->update($data) . $this->finalize();
+            $this->buffer = $this->encryptor->update($data) . $this->finalize();
+
+            return $this->extractFromBuffer(mb_strlen($this->buffer, '8bit'));
         }
 
         $result = '';
@@ -144,7 +145,7 @@ class EncryptedStreamDecorator implements StreamInterface
         return $result;
     }
 
-    public function getMetadata($key = null)
+    public function getMetadata(?string $key = null)
     {
         return $this->stream->getMetadata($key);
     }
@@ -157,14 +158,14 @@ class EncryptedStreamDecorator implements StreamInterface
 
         $this->finalized = true;
         $result = $this->encryptor->finish();
-        $this->position += strlen($result);
+
         return $result;
     }
 
     private function calculateReadSize(int $requested): int
     {
         return min(
-            max($requested, WhatsAppMediaCipher::BLOCK_SIZE),
+            max($requested, $this->blockSize),
             $this->chunkSize
         );
     }
@@ -173,7 +174,8 @@ class EncryptedStreamDecorator implements StreamInterface
     {
         $result = substr($this->buffer, 0, $length);
         $this->buffer = substr($this->buffer, $length);
-        $this->position += strlen($result);
+        $this->position += mb_strlen($result, '8bit');
+
         return $result;
     }
 }
