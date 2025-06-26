@@ -24,6 +24,10 @@ class EncryptedStreamDecorator implements StreamInterface
         private MediaCipherInterface $encryptor,
         private int $chunkSize = 65536
     ) {
+        if (!$stream->isReadable()) {
+            throw new InvalidArgumentException('Stream must be readable');
+        }
+        
         $this->blockSize = $this->encryptor->getBlockSize();
 
         if ($chunkSize < $this->blockSize) {
@@ -39,7 +43,7 @@ class EncryptedStreamDecorator implements StreamInterface
         try {
             return $this->getContents();
         } catch (\Throwable $e) {
-            throw new StreamException('Error reading stream contents: ' . $e->getMessage(), 0, $e);
+            return '';
         }
     }
 
@@ -69,7 +73,7 @@ class EncryptedStreamDecorator implements StreamInterface
 
     public function eof(): bool
     {
-        return $this->sourceEof && $this->buffer === '' && $this->finalized;
+        return $this->sourceEof && empty($this->buffer) && $this->finalized;
     }
 
     public function isSeekable(): bool
@@ -79,12 +83,12 @@ class EncryptedStreamDecorator implements StreamInterface
 
     public function seek(int $offset, int $whence = SEEK_SET): void
     {
-        throw new RuntimeException('Encrypted stream does not support seeking');
+        throw new StreamException('Encrypted stream does not support seeking');
     }
 
     public function rewind(): void
     {
-        throw new RuntimeException('Encrypted stream does not support seeking');
+        throw new StreamException('Encrypted stream does not support seeking');
     }
 
     public function isWritable(): bool
@@ -94,7 +98,7 @@ class EncryptedStreamDecorator implements StreamInterface
 
     public function write(string $string): int
     {
-        throw new RuntimeException('Cannot write to an encrypted read-only stream');
+        throw new StreamException('Cannot write to an encrypted read-only stream');
     }
 
     public function isReadable(): bool
@@ -113,7 +117,7 @@ class EncryptedStreamDecorator implements StreamInterface
         while (mb_strlen($this->buffer, '8bit') < $length && !$this->sourceEof) {
             $chunk = $this->stream->read($readSize);
 
-            if ($chunk === '') {
+            if (empty($chunk)) {
                 $this->sourceEof = true;
                 $this->buffer .= $this->finalize();
             } else {
@@ -132,9 +136,10 @@ class EncryptedStreamDecorator implements StreamInterface
 
         if ($this->stream->getSize() !== null && $this->stream->getSize() <= $this->chunkSize) {
             $data = $this->stream->getContents();
-            $this->buffer = $this->encryptor->update($data) . $this->finalize();
-
-            return $this->extractFromBuffer(mb_strlen($this->buffer, '8bit'));
+            $result = $this->encryptor->update($data) . $this->finalize();
+            $this->position += mb_strlen($result, '8bit');
+        
+            return $result;
         }
 
         $result = '';
@@ -173,6 +178,10 @@ class EncryptedStreamDecorator implements StreamInterface
     private function extractFromBuffer(int $length): string
     {
         $result = substr($this->buffer, 0, $length);
+        if ($result === false) {
+            throw new StreamException('Failed to extract data from buffer');
+        }
+
         $this->buffer = substr($this->buffer, $length);
         $this->position += mb_strlen($result, '8bit');
 
