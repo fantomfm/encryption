@@ -7,7 +7,6 @@ namespace Encryption\Stream;
 use Encryption\Exception\StreamException;
 use Encryption\Interface\MediaCipherInterface;
 use Psr\Http\Message\StreamInterface;
-use RuntimeException;
 use InvalidArgumentException;
 
 class EncryptedStreamDecorator implements StreamInterface
@@ -131,7 +130,7 @@ class EncryptedStreamDecorator implements StreamInterface
 
     public function getContents(): string
     {
-        if ($this->eof()) {
+        if ($this->eof() || $this->stream->eof()) {
             return '';
         }
 
