@@ -27,7 +27,7 @@ class EncryptedStreamDecorator implements StreamInterface
         if (!$stream->isReadable()) {
             throw new InvalidArgumentException('Stream must be readable');
         }
-        
+
         $this->blockSize = $this->encryptor->getBlockSize();
 
         if ($chunkSize < $this->blockSize) {
@@ -135,12 +135,8 @@ class EncryptedStreamDecorator implements StreamInterface
             return '';
         }
 
-        $result = '';
-    
-        if ($this->buffer !== '') {
-            $result = $this->buffer;
-            $this->buffer = '';
-        }
+        $result = $this->buffer;
+        $this->buffer = '';
 
         if ($this->stream->getSize() !== null && $this->stream->getSize() <= $this->chunkSize) {
             $data = $this->stream->getContents();
@@ -149,23 +145,17 @@ class EncryptedStreamDecorator implements StreamInterface
 
             $this->sourceEof = true;
             $this->buffer = '';
-        
+
             return $result;
         }
 
-        // $result = '';
         while (!$this->eof()) {
-            $remaining = $this->stream->getSize() - $this->position;
-            $chunkSize = $remaining > 0 ? min($this->chunkSize, $remaining) : $this->chunkSize;
-            
-            $chunk = $this->stream->read($chunkSize);
+            $chunk = $this->stream->read($this->chunkSize);
             if ($chunk === '') {
                 $this->sourceEof = true;
-                $this->buffer = '';
                 break;
             }
             $result .= $this->encryptor->update($chunk);
-            $this->position += strlen($chunk);
         }
 
         $mac = $this->finalize();
