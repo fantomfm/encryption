@@ -69,4 +69,9 @@ class EncryptedStreamDecoratorBehaviorTest extends TestCase
         
         $this->decorator->rewind();
     }
+
+    protected function tearDown(): void
+    {
+        unset($this->decorator, $this->streamMock, $this->encryptorMock);
+    }
 }

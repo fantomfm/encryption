@@ -73,7 +73,7 @@ class EncryptedStreamDecorator implements StreamInterface
 
     public function eof(): bool
     {
-        return $this->sourceEof && empty($this->buffer) && $this->finalized;
+        return $this->sourceEof && empty($this->buffer);
     }
 
     public function isSeekable(): bool
@@ -119,7 +119,8 @@ class EncryptedStreamDecorator implements StreamInterface
 
             if (empty($chunk)) {
                 $this->sourceEof = true;
-                $this->buffer .= $this->finalize();
+                $this->buffer = '';
+                break;
             } else {
                 $this->buffer .= $this->encryptor->update($chunk);
             }
@@ -134,18 +135,45 @@ class EncryptedStreamDecorator implements StreamInterface
             return '';
         }
 
+        $result = '';
+    
+        if ($this->buffer !== '') {
+            $result = $this->buffer;
+            $this->buffer = '';
+        }
+
         if ($this->stream->getSize() !== null && $this->stream->getSize() <= $this->chunkSize) {
             $data = $this->stream->getContents();
             $result = $this->encryptor->update($data) . $this->finalize();
             $this->position += mb_strlen($result, '8bit');
+
+            $this->sourceEof = true;
+            $this->buffer = '';
         
             return $result;
         }
 
-        $result = '';
+        // $result = '';
         while (!$this->eof()) {
-            $result .= $this->read($this->chunkSize);
+            $remaining = $this->stream->getSize() - $this->position;
+            $chunkSize = $remaining > 0 ? min($this->chunkSize, $remaining) : $this->chunkSize;
+            
+            $chunk = $this->stream->read($chunkSize);
+            if ($chunk === '') {
+                $this->sourceEof = true;
+                $this->buffer = '';
+                break;
+            }
+            $result .= $this->encryptor->update($chunk);
+            $this->position += strlen($chunk);
         }
+
+        $mac = $this->finalize();
+        $result .= $mac;
+
+        $this->position += strlen($result);
+        $this->sourceEof = true;
+        $this->buffer = '';
 
         return $result;
     }
@@ -163,6 +191,7 @@ class EncryptedStreamDecorator implements StreamInterface
 
         $this->finalized = true;
         $result = $this->encryptor->finish();
+        $this->buffer .= $result;
 
         return $result;
     }
