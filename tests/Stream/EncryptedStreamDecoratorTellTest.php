@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Encryption\Stream;
+namespace EncryptionTest\Stream;
 
 use Encryption\Stream\EncryptedStreamDecorator;
 use Encryption\Interface\MediaCipherInterface;
@@ -19,7 +19,7 @@ class EncryptedStreamDecoratorTellTest extends TestCase
     {
         $this->streamMock = $this->createMock(StreamInterface::class);
         $this->streamMock->method('isReadable')->willReturn(true);
-        
+
         $encryptorMock = $this->createMock(MediaCipherInterface::class);
         $encryptorMock->method('getBlockSize')->willReturn(16);
         $encryptorMock->method('update')->willReturnArgument(0);
@@ -55,7 +55,7 @@ class EncryptedStreamDecoratorTellTest extends TestCase
     public function testUpdatesAfterGetContents(): void
     {
         $testData = str_repeat('c', 200);
-        
+
         $this->streamMock->method('getSize')->willReturn(200);
         $this->streamMock->method('getContents')->willReturn($testData);
         $this->streamMock->method('read')->willReturn($testData);
@@ -70,19 +70,19 @@ class EncryptedStreamDecoratorTellTest extends TestCase
     public function testAfterFinalize(): void
     {
         $this->invokeFinalize();
-        
+
         $this->assertStringEndsWith($this->mockMac, $this->getBufferContent());
-        
+
         $this->assertEquals(0, $this->decorator->tell());
     }
 
     public function testPositionNotAffectedByMac(): void
     {
         $this->streamMock->method('read')->willReturn('data');
-        
+
         $this->decorator->read(4);
         $this->decorator->close();
-        
+
         $this->assertEquals(4, $this->decorator->tell());
     }
 

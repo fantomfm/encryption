@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Encryption\Stream;
+namespace EncryptionTest\Stream;
 
 use Encryption\Exception\EncryptionException;
 use Encryption\Stream\EncryptedStreamDecorator;
