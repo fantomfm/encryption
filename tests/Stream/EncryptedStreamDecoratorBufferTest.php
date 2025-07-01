@@ -12,15 +12,15 @@ use Psr\Http\Message\StreamInterface;
 class EncryptedStreamDecoratorBufferTest extends TestCase
 {
     private MediaCipherInterface $encryptor;
-    private StreamInterface $streamMock;
+    private StreamInterface $stream;
 
     protected function setUp(): void
     {
         $this->encryptor = $this->createMock(MediaCipherInterface::class);
         $this->encryptor->method('getBlockSize')->willReturn(16);
 
-        $this->streamMock = $this->createMock(StreamInterface::class);
-        $this->streamMock->method('isReadable')->willReturn(true);
+        $this->stream = $this->createMock(StreamInterface::class);
+        $this->stream->method('isReadable')->willReturn(true);
     }
 
     public function testBufferHandlesPartialReads(): void
@@ -32,13 +32,13 @@ class EncryptedStreamDecoratorBufferTest extends TestCase
                 str_repeat('b', 32)
             );
 
-        $this->streamMock->method('read')
+        $this->stream->method('read')
             ->willReturnOnConsecutiveCalls(
                 'chunk1',
                 'chunk2'
             );
 
-        $decorator = new EncryptedStreamDecorator($this->streamMock, $this->encryptor, 64);
+        $decorator = new EncryptedStreamDecorator($this->stream, $this->encryptor, 64);
 
         $result1 = $decorator->read(20);
         $this->assertEquals(20, strlen($result1));
@@ -66,16 +66,16 @@ class EncryptedStreamDecoratorBufferTest extends TestCase
             ->with($testData)
             ->willReturn($testData);
 
-        $this->streamMock->method('read')
+        $this->stream->method('read')
             ->willReturnCallback(function($length) use ($testData, &$readCalls) {
                 $readCalls[] = $length;
                 return count($readCalls) === 1 ? $testData : '';
             });
 
-        $this->streamMock->method('eof')
+        $this->stream->method('eof')
             ->willReturnOnConsecutiveCalls(false, true);
 
-        $decorator = new EncryptedStreamDecorator($this->streamMock, $this->encryptor, 64);
+        $decorator = new EncryptedStreamDecorator($this->stream, $this->encryptor, 64);
 
         $result = $decorator->read(64);
         $this->assertEquals(64, strlen($result));
@@ -103,7 +103,7 @@ class EncryptedStreamDecoratorBufferTest extends TestCase
                 $chunk3
             );
 
-        $this->streamMock->method('read')
+        $this->stream->method('read')
             ->willReturnOnConsecutiveCalls(
                 'source_chunk1',
                 'source_chunk2',
@@ -111,7 +111,7 @@ class EncryptedStreamDecoratorBufferTest extends TestCase
                 ''
             );
 
-        $decorator = new EncryptedStreamDecorator($this->streamMock, $this->encryptor, 32);
+        $decorator = new EncryptedStreamDecorator($this->stream, $this->encryptor, 32);
 
         $result1 = $decorator->read(48);
         $this->assertEquals(48, strlen($result1));

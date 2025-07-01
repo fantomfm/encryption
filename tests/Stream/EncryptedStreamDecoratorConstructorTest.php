@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace EncryptionTest\Stream;
 
-use Encryption\Exception\StreamException;
 use Encryption\Stream\EncryptedStreamDecorator;
 use Encryption\Interface\MediaCipherInterface;
 use InvalidArgumentException;
@@ -78,19 +77,19 @@ class EncryptedStreamDecoratorConstructorTest extends TestCase
         $decorator = new EncryptedStreamDecorator($stream, $encryptor, $chunkSize);
 
         $reflection = new \ReflectionClass($decorator);
-        
+
         $streamProperty = $reflection->getProperty('stream');
         $streamProperty->setAccessible(true);
         $this->assertSame($stream, $streamProperty->getValue($decorator));
-        
+
         $encryptorProperty = $reflection->getProperty('encryptor');
         $encryptorProperty->setAccessible(true);
         $this->assertSame($encryptor, $encryptorProperty->getValue($decorator));
-        
+
         $chunkSizeProperty = $reflection->getProperty('chunkSize');
         $chunkSizeProperty->setAccessible(true);
         $this->assertEquals($chunkSize, $chunkSizeProperty->getValue($decorator));
-        
+
         $blockSizeProperty = $reflection->getProperty('blockSize');
         $blockSizeProperty->setAccessible(true);
         $this->assertEquals(16, $blockSizeProperty->getValue($decorator));

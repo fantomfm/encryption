@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace EncryptionTest\Stream;
 
-use Encryption\Exception\StreamException;
 use Encryption\Stream\EncryptedStreamDecorator;
 use Encryption\Interface\MediaCipherInterface;
 use PHPUnit\Framework\TestCase;
@@ -13,30 +12,30 @@ use Psr\Http\Message\StreamInterface;
 class EncryptedStreamDecoratorReadTest extends TestCase
 {
     private EncryptedStreamDecorator $decorator;
-    private StreamInterface $streamMock;
-    private MediaCipherInterface $encryptorMock;
+    private StreamInterface $stream;
+    private MediaCipherInterface $encryptor;
 
     protected function setUp(): void
     {
-        $this->streamMock = $this->createMock(StreamInterface::class);
-        $this->streamMock->method('isReadable')->willReturn(true);
+        $this->stream = $this->createMock(StreamInterface::class);
+        $this->stream->method('isReadable')->willReturn(true);
 
-        $this->encryptorMock = $this->createMock(MediaCipherInterface::class);
-        $this->encryptorMock->method('getBlockSize')->willReturn(16);
-        $this->encryptorMock->method('update')->willReturnArgument(0);
-        $this->encryptorMock->method('finish')->willReturn('__MAC__');
+        $this->encryptor = $this->createMock(MediaCipherInterface::class);
+        $this->encryptor->method('getBlockSize')->willReturn(16);
+        $this->encryptor->method('update')->willReturnArgument(0);
+        $this->encryptor->method('finish')->willReturn('__MAC__');
 
         $this->decorator = new EncryptedStreamDecorator(
-            $this->streamMock,
-            $this->encryptorMock,
+            $this->stream,
+            $this->encryptor,
             1024
         );
     }
 
     public function testReadEmptyStreamReturnsEmptyString(): void
     {
-        $this->streamMock->method('read')->willReturn('');
-        $this->streamMock->method('eof')->willReturn(true);
+        $this->stream->method('read')->willReturn('');
+        $this->stream->method('eof')->willReturn(true);
 
         $result = $this->decorator->read(100);
 
@@ -48,7 +47,7 @@ class EncryptedStreamDecoratorReadTest extends TestCase
     public function testReadSmallerThanBlockSize(): void
     {
         $testData = str_repeat('a', 10);
-        $this->streamMock->method('read')->willReturn($testData);
+        $this->stream->method('read')->willReturn($testData);
 
         $result = $this->decorator->read(10);
 
@@ -59,7 +58,7 @@ class EncryptedStreamDecoratorReadTest extends TestCase
     public function testReadExactBlockSize(): void
     {
         $testData = str_repeat('b', 16);
-        $this->streamMock->method('read')->willReturn($testData);
+        $this->stream->method('read')->willReturn($testData);
 
         $result = $this->decorator->read(16);
 
@@ -70,7 +69,7 @@ class EncryptedStreamDecoratorReadTest extends TestCase
     public function testReadLargerThanBlockSize(): void
     {
         $testData = str_repeat('c', 64);
-        $this->streamMock->method('read')->willReturn($testData);
+        $this->stream->method('read')->willReturn($testData);
 
         $result = $this->decorator->read(64);
 
@@ -86,7 +85,7 @@ class EncryptedStreamDecoratorReadTest extends TestCase
             str_repeat('c', 5)
         ];
 
-        $this->streamMock->method('read')
+        $this->stream->method('read')
             ->willReturnOnConsecutiveCalls(...$testChunks);
 
         $result1 = $this->decorator->read(10);
@@ -104,7 +103,7 @@ class EncryptedStreamDecoratorReadTest extends TestCase
 
     public function testReadAfterEofReturnsEmptyString(): void
     {
-        $this->streamMock->method('read')
+        $this->stream->method('read')
             ->willReturnOnConsecutiveCalls(
                 str_repeat('a', 10),
                 ''
@@ -122,19 +121,39 @@ class EncryptedStreamDecoratorReadTest extends TestCase
         $this->assertSame('', $thirdRead);
     }
 
-    public function testReadAfterCloseThrows(): void
+    public function testReadAfterCloseReturnsEmptyString(): void
     {
         $this->decorator->close();
-        
-        $this->expectException(StreamException::class);
-        $this->expectExceptionMessage('Cannot read from a closed stream');
-        
-        $this->decorator->read(10);
+
+        $this->assertTrue($this->decorator->eof());
+        $this->assertSame('', $this->decorator->read(10));
+        $this->assertSame('', $this->decorator->read(100));
     }
 
+    public function testCloseIsIdempotent(): void
+    {
+        $this->decorator->close();
+        $this->assertTrue($this->decorator->eof());
+
+        $this->decorator->close();
+        $this->assertSame('', $this->decorator->read(10));
+    }
+
+    public function testCorruptedStreamHandling(): void
+    {
+        $this->stream->method('read')->willReturn('corrupted_data');
+
+        $this->encryptor->method('update')
+            ->willThrowException(new \RuntimeException('Decryption failed'));
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('Decryption failed');
+
+        $this->decorator->read(16);
+    }
 
     protected function tearDown(): void
     {
-        unset($this->decorator, $this->streamMock, $this->encryptorMock);
+        unset($this->decorator, $this->stream, $this->encryptor);
     }
 }

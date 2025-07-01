@@ -3,6 +3,7 @@
 namespace EncryptionTest;
 
 use Encryption\Enum\MediaType;
+use Encryption\Exception\EncryptionException;
 use Encryption\Interface\MediaCipherInterface;
 use Encryption\WhatsApp\WhatsAppMediaEncryptor;
 use InvalidArgumentException;
@@ -141,12 +142,21 @@ final class WhatsAppMediaEncryptorTest extends TestCase
         $this->assertSame('', $encryptor->finish());
     }
 
+    public function testFinalizedEncryptor(): void
+    {
+        $encryptor = new WhatsAppMediaEncryptor(random_bytes(32), MediaType::IMAGE);
+        $encryptor->finish();
+
+        $this->expectException(EncryptionException::class);
+        $encryptor->update('test');
+    }
+
     protected function isFinalized(object $object): bool
     {
         $reflection = new \ReflectionClass($object);
         $property = $reflection->getProperty('finalized');
         $property->setAccessible(true);
-        
+
         return $property->getValue($object);
     }
 }

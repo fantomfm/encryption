@@ -51,12 +51,14 @@ class EncryptedStreamDecorator implements StreamInterface
         $this->finalize();
         $this->stream->close();
         $this->buffer = '';
+        $this->sourceEof = true;
     }
 
     public function detach()
     {
         $this->finalize();
         $this->buffer = '';
+        $this->sourceEof = true;
         return $this->stream->detach();
     }
 
@@ -196,6 +198,7 @@ class EncryptedStreamDecorator implements StreamInterface
     private function extractFromBuffer(int $length): string
     {
         $result = substr($this->buffer, 0, $length);
+
         if ($result === false) {
             throw new StreamException('Failed to extract data from buffer');
         }
