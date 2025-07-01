@@ -46,8 +46,6 @@ class EncryptedStreamDecoratorGetContentsTest extends TestCase
             ->willReturn(500);
         $this->streamMock->method('getContents')
             ->willReturn($testData);
-        $this->streamMock->method('eof')
-            ->willReturnOnConsecutiveCalls(false, true);
 
         $result = $this->decorator->getContents();
 
@@ -88,7 +86,6 @@ class EncryptedStreamDecoratorGetContentsTest extends TestCase
         $testData = str_repeat('c', 800);
         $this->streamMock->method('getSize')->willReturn(800);
         $this->streamMock->method('getContents')->willReturn($testData);
-        $this->streamMock->method('eof')->willReturn(true);
 
         $initialPos = $this->decorator->tell();
 
@@ -172,14 +169,6 @@ class EncryptedStreamDecoratorGetContentsTest extends TestCase
         $result = $this->decorator->getContents();
         $this->assertEquals($this->chunkSize + strlen($this->mockMac), strlen($result));
         $this->assertTrue($this->decorator->eof());
-    }
-
-    public function testGetContentsAfterEof(): void
-    {
-        $this->streamMock->method('eof')->willReturn(true);
-
-        $result = $this->decorator->getContents();
-        $this->assertSame('', $result);
     }
 
     public function testGetContentsAfterEncryptionError(): void

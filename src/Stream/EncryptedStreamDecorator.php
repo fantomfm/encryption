@@ -130,7 +130,7 @@ class EncryptedStreamDecorator implements StreamInterface
 
     public function getContents(): string
     {
-        if ($this->eof() || $this->stream->eof()) {
+        if ($this->eof()) {
             return '';
         }
 

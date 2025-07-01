@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace EncryptionTest\Stream;
 
+use Encryption\Exception\StreamException;
 use Encryption\Stream\EncryptedStreamDecorator;
 use Encryption\Interface\MediaCipherInterface;
 use PHPUnit\Framework\TestCase;
@@ -120,6 +121,17 @@ class EncryptedStreamDecoratorReadTest extends TestCase
         $thirdRead = $this->decorator->read(10);
         $this->assertSame('', $thirdRead);
     }
+
+    public function testReadAfterCloseThrows(): void
+    {
+        $this->decorator->close();
+        
+        $this->expectException(StreamException::class);
+        $this->expectExceptionMessage('Cannot read from a closed stream');
+        
+        $this->decorator->read(10);
+    }
+
 
     protected function tearDown(): void
     {
