@@ -10,20 +10,22 @@ use Encryption\WhatsApp\WhatsAppMediaEncryptor;
 use PHPUnit\Framework\TestCase;
 use GuzzleHttp\Psr7\Stream;
 
-class AudioFileEncryptionTest extends TestCase
+class FileEncryptionTest extends TestCase
 {
-    private const ORIGINAL_FILE = __DIR__ . '/files/AUDIO.original';
-    private const ENCRYPTED_FILE = __DIR__ . '/files/AUDIO.encrypted';
-    private const KEY_FILE = __DIR__ . '/files/AUDIO.key';
+    private const ORIGINAL_FILE = __DIR__ . '/files/VIDEO.original';
+    private const ENCRYPTED_FILE = __DIR__ . '/files/VIDEO.encrypted';
+    private const KEY_FILE = __DIR__ . '/files/VIDEO.key';
 
-    public function testAudioFileEncryptionMatchesPrecomputedResult(): void
+    private const MEDIA_TYPE = MediaType::VIDEO;
+
+    public function testFileEncryptionMatchesPrecomputedResult(): void
     {
         $originalContent = file_get_contents(self::ORIGINAL_FILE);
         $expectedEncryptedContent = file_get_contents(self::ENCRYPTED_FILE);
         $mediaKey = trim(file_get_contents(self::KEY_FILE));
 
         $stream = $this->createStreamFromString($originalContent);
-        $encryptor = new WhatsAppMediaEncryptor($mediaKey, MediaType::AUDIO);
+        $encryptor = new WhatsAppMediaEncryptor($mediaKey, self::MEDIA_TYPE);
         $encryptedStream = new EncryptedStreamDecorator($stream, $encryptor);
 
         $actualEncryptedContent = $encryptedStream->getContents();
@@ -33,13 +35,13 @@ class AudioFileEncryptionTest extends TestCase
         $this->assertSame($expectedEncryptedContent, $actualEncryptedContent);
     }
 
-    public function testAudioFileEncryptionInChunks(): void
+    public function testFileEncryptionInChunks(): void
     {
         $originalContent = file_get_contents(self::ORIGINAL_FILE);
         $mediaKey = trim(file_get_contents(self::KEY_FILE));
 
         $stream = $this->createStreamFromString($originalContent);
-        $encryptor = new WhatsAppMediaEncryptor($mediaKey, MediaType::AUDIO);
+        $encryptor = new WhatsAppMediaEncryptor($mediaKey, self::MEDIA_TYPE);
         $encryptedStream = new EncryptedStreamDecorator($stream, $encryptor, 1024);
 
         $actualEncryptedContent = '';
@@ -56,7 +58,7 @@ class AudioFileEncryptionTest extends TestCase
     public function testEncryptedStreamMetadata(): void
     {
         $stream = new Stream(fopen(self::ORIGINAL_FILE, 'r'));
-        $encryptor = new WhatsAppMediaEncryptor(trim(file_get_contents(self::KEY_FILE)), MediaType::AUDIO);
+        $encryptor = new WhatsAppMediaEncryptor(trim(file_get_contents(self::KEY_FILE)), self::MEDIA_TYPE);
         $encryptedStream = new EncryptedStreamDecorator($stream, $encryptor);
 
         $this->assertTrue($encryptedStream->isReadable());
