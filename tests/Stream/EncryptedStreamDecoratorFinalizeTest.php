@@ -15,8 +15,6 @@ class EncryptedStreamDecoratorFinalizeTest extends TestCase
     private MediaCipherInterface $encryptor;
     private EncryptedStreamDecorator $decorator;
 
-    private string $mockMac = '__MAC__';
-
     protected function setUp(): void
     {
         $this->stream = $this->createMock(StreamInterface::class);
@@ -42,7 +40,9 @@ class EncryptedStreamDecoratorFinalizeTest extends TestCase
 
     public function testFinalizeAppendsMac(): void
     {
-        $this->encryptor->method('finish')->willReturn($this->mockMac);
+        $mac = '__MAC__';
+        
+        $this->encryptor->method('finish')->willReturn($mac);
         $this->encryptor->method('update')->willReturn('test_data');
 
         
@@ -50,6 +50,6 @@ class EncryptedStreamDecoratorFinalizeTest extends TestCase
 
         $contents = $this->decorator->getContents();
 
-        $this->assertStringEndsWith($this->mockMac, $contents);
+        $this->assertStringEndsWith($mac, $contents);
     }
 }

@@ -59,6 +59,7 @@ class EncryptedStreamDecorator implements StreamInterface
         $this->finalize();
         $this->buffer = '';
         $this->sourceEof = true;
+        
         return $this->stream->detach();
     }
 
@@ -115,16 +116,20 @@ class EncryptedStreamDecorator implements StreamInterface
 
         $readSize = $this->calculateReadSize($length);
 
+        if (mb_strlen($this->buffer, '8bit') >= $length) {
+            return $this->extractFromBuffer($length);
+        }
+
         while (mb_strlen($this->buffer, '8bit') < $length && !$this->sourceEof) {
             $chunk = $this->stream->read($readSize);
 
             if (empty($chunk)) {
                 $this->sourceEof = true;
-                $this->buffer = '';
+                $this->buffer .= $this->finalize();
                 break;
-            } else {
-                $this->buffer .= $this->encryptor->update($chunk);
             }
+            
+            $this->buffer .= $this->encryptor->update($chunk);
         }
 
         return $this->extractFromBuffer($length);
@@ -145,7 +150,6 @@ class EncryptedStreamDecorator implements StreamInterface
             $this->position += mb_strlen($result, '8bit');
 
             $this->sourceEof = true;
-            $this->buffer = '';
 
             return $result;
         }
@@ -159,12 +163,10 @@ class EncryptedStreamDecorator implements StreamInterface
             $result .= $this->encryptor->update($chunk);
         }
 
-        $mac = $this->finalize();
-        $result .= $mac;
+        $result .= $this->finalize();
 
         $this->position += strlen($result);
         $this->sourceEof = true;
-        $this->buffer = '';
 
         return $result;
     }
@@ -181,10 +183,8 @@ class EncryptedStreamDecorator implements StreamInterface
         }
 
         $this->finalized = true;
-        $result = $this->encryptor->finish();
-        $this->buffer .= $result;
 
-        return $result;
+        return $this->encryptor->finish();
     }
 
     private function calculateReadSize(int $requested): int

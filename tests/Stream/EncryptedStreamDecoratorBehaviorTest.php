@@ -13,20 +13,20 @@ use Psr\Http\Message\StreamInterface;
 class EncryptedStreamDecoratorBehaviorTest extends TestCase
 {
     private EncryptedStreamDecorator $decorator;
-    private StreamInterface $streamMock;
-    private MediaCipherInterface $encryptorMock;
+    private StreamInterface $stream;
+    private MediaCipherInterface $encryptor;
 
     protected function setUp(): void
     {
-        $this->streamMock = $this->createMock(StreamInterface::class);
-        $this->streamMock->method('isReadable')->willReturn(true);
+        $this->stream = $this->createMock(StreamInterface::class);
+        $this->stream->method('isReadable')->willReturn(true);
         
-        $this->encryptorMock = $this->createMock(MediaCipherInterface::class);
-        $this->encryptorMock->method('getBlockSize')->willReturn(16);
+        $this->encryptor = $this->createMock(MediaCipherInterface::class);
+        $this->encryptor->method('getBlockSize')->willReturn(16);
         
         $this->decorator = new EncryptedStreamDecorator(
-            $this->streamMock,
-            $this->encryptorMock,
+            $this->stream,
+            $this->encryptor,
             1024
         );
     }
@@ -72,6 +72,6 @@ class EncryptedStreamDecoratorBehaviorTest extends TestCase
 
     protected function tearDown(): void
     {
-        unset($this->decorator, $this->streamMock, $this->encryptorMock);
+        unset($this->decorator, $this->stream, $this->encryptor);
     }
 }

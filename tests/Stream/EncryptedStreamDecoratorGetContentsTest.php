@@ -13,87 +13,87 @@ use Psr\Http\Message\StreamInterface;
 class EncryptedStreamDecoratorGetContentsTest extends TestCase
 {
     private EncryptedStreamDecorator $decorator;
-    private StreamInterface $streamMock;
-    private MediaCipherInterface $encryptorMock;
+    private StreamInterface $stream;
+    private MediaCipherInterface $encryptor;
 
-    private string $mockMac = '__MAC__';
-    private int $chunkSize = 1024;
+    private const MOCK_MAC = '__MAC__';
+    private const CHUNK_SIZE = 1024;
 
     protected function setUp(): void
     {
-        $this->streamMock = $this->createMock(StreamInterface::class);
-        $this->streamMock->method('isReadable')->willReturn(true);
+        $this->stream = $this->createMock(StreamInterface::class);
+        $this->stream->method('isReadable')->willReturn(true);
 
-        $this->encryptorMock = $this->createMock(MediaCipherInterface::class);
-        $this->encryptorMock->method('getBlockSize')->willReturn(16);
-        $this->encryptorMock->method('update')->willReturnArgument(0);
-        $this->encryptorMock->method('finish')->willReturn($this->mockMac);
+        $this->encryptor = $this->createMock(MediaCipherInterface::class);
+        $this->encryptor->method('getBlockSize')->willReturn(16);
+        $this->encryptor->method('update')->willReturnArgument(0);
+        $this->encryptor->method('finish')->willReturn(self::MOCK_MAC);
 
         $this->decorator = new EncryptedStreamDecorator(
-            $this->streamMock,
-            $this->encryptorMock,
-            $this->chunkSize
+            $this->stream,
+            $this->encryptor,
+            self::CHUNK_SIZE
         );
     }
 
     public function testGetContentsSmallStream(): void
     {
         $testData = str_repeat('a', 500);
-        $this->streamMock->expects($this->never())
+        $this->stream->expects($this->never())
             ->method('read');
 
-        $this->streamMock->method('getSize')
+        $this->stream->method('getSize')
             ->willReturn(500);
-        $this->streamMock->method('getContents')
+        $this->stream->method('getContents')
             ->willReturn($testData);
 
         $result = $this->decorator->getContents();
 
-        $this->assertSame($testData . $this->mockMac, $result);
-        $this->assertEquals(500 + mb_strlen($this->mockMac, '8bit'), $this->decorator->tell());
+        $this->assertSame($testData . self::MOCK_MAC, $result);
+        $this->assertEquals(500 + mb_strlen(self::MOCK_MAC, '8bit'), $this->decorator->tell());
         $this->assertTrue($this->decorator->eof());
     }
 
     public function testGetContentsLargeStream(): void
     {
-        $largeData = str_repeat('b', $this->chunkSize * 2 - 50);
+        $largeData = str_repeat('b', self::CHUNK_SIZE * 2 - 50);
 
         $chunks = [
-            substr($largeData, 0, $this->chunkSize),
-            substr($largeData, $this->chunkSize, $this->chunkSize),
+            substr($largeData, 0, self::CHUNK_SIZE),
+            substr($largeData, self::CHUNK_SIZE, self::CHUNK_SIZE),
             ''
         ];
 
-        $this->streamMock->method('getSize')->willReturn(strlen($largeData));
-        $this->streamMock->expects($this->exactly(3))
+        $this->stream->method('getSize')->willReturn(strlen($largeData));
+        $this->stream->expects($this->exactly(3))
             ->method('read')
             ->willReturnOnConsecutiveCalls(...$chunks);
 
-        $this->encryptorMock->method('update')
+        $this->encryptor->method('update')
             ->willReturnCallback(fn($data) => $data);
-        $this->encryptorMock->method('finish')
-            ->willReturn($this->mockMac);
+        $this->encryptor->method('finish')
+            ->willReturn(self::MOCK_MAC);
 
         $result = $this->decorator->getContents();
 
-        $this->assertSame($largeData . $this->mockMac, $result);
-        $this->assertEquals(strlen($largeData) + strlen($this->mockMac), $this->decorator->tell());
+        $this->assertSame($largeData . self::MOCK_MAC, $result);
+        $this->assertEquals(strlen($largeData) + strlen(self::MOCK_MAC), $this->decorator->tell());
         $this->assertTrue($this->decorator->eof());
     }
 
     public function testGetContentsUpdatesPosition(): void
     {
         $testData = str_repeat('c', 800);
-        $this->streamMock->method('getSize')->willReturn(800);
-        $this->streamMock->method('getContents')->willReturn($testData);
+        $this->stream->method('getSize')->willReturn(800);
+        $this->stream->method('getContents')->willReturn($testData);
 
         $initialPos = $this->decorator->tell();
 
         $result = $this->decorator->getContents();
 
         $this->assertEquals(0, $initialPos);
-        $this->assertEquals(800 + mb_strlen($this->mockMac, '8bit'), $this->decorator->tell());
-        $this->assertEquals($testData . $this->mockMac, $result);
+        $this->assertEquals(800 + mb_strlen(self::MOCK_MAC, '8bit'), $this->decorator->tell());
+        $this->assertEquals($testData . self::MOCK_MAC, $result);
     }
 
     public function testGetContentsAfterPartialRead(): void
@@ -105,8 +105,8 @@ class EncryptedStreamDecoratorGetContentsTest extends TestCase
             substr($testData, 1324)
         ];
 
-        $this->streamMock->method('getSize')->willReturn(1500);
-        $this->streamMock->expects($this->exactly(4))
+        $this->stream->method('getSize')->willReturn(1500);
+        $this->stream->expects($this->exactly(4))
             ->method('read')
             ->willReturnOnConsecutiveCalls(
                 $chunks[0],
@@ -115,66 +115,66 @@ class EncryptedStreamDecoratorGetContentsTest extends TestCase
                 ''
             );
 
-        $this->streamMock->method('eof')
+        $this->stream->method('eof')
             ->willReturnOnConsecutiveCalls(false, false, false, true);
 
         $firstResult = $this->decorator->read(300);
         $this->assertSame($chunks[0], $firstResult);
 
         $remainingResult = $this->decorator->getContents();
-        $this->assertSame($chunks[1] . $chunks[2] . $this->mockMac, $remainingResult);
-        $this->assertEquals(1500 + mb_strlen($this->mockMac, '8bit'), $this->decorator->tell());
+        $this->assertSame($chunks[1] . $chunks[2] . self::MOCK_MAC, $remainingResult);
+        $this->assertEquals(1500 + mb_strlen(self::MOCK_MAC, '8bit'), $this->decorator->tell());
         $this->assertTrue($this->decorator->eof());
     }
 
     public function testGetContentsEmptyStream(): void
     {
-        $this->streamMock->method('getSize')->willReturn(0);
-        $this->streamMock->expects($this->never())
+        $this->stream->method('getSize')->willReturn(0);
+        $this->stream->expects($this->never())
             ->method('read');
 
-        $this->streamMock->expects($this->once())
+        $this->stream->expects($this->once())
             ->method('getContents')
             ->willReturn('');
 
-        $this->streamMock->method('eof')
+        $this->stream->method('eof')
             ->willReturn(true);
 
-        $this->encryptorMock->expects($this->once())
+        $this->encryptor->expects($this->once())
             ->method('update')
             ->with('')
             ->willReturn('');
 
-        $this->encryptorMock->expects($this->once())
+        $this->encryptor->expects($this->once())
             ->method('finish')
-            ->willReturn($this->mockMac);
+            ->willReturn(self::MOCK_MAC);
 
         $result = $this->decorator->getContents();
 
-        $this->assertSame($this->mockMac, $result);
+        $this->assertSame(self::MOCK_MAC, $result);
         $this->assertTrue($this->decorator->eof());
-        $this->assertEquals(strlen($this->mockMac), $this->decorator->tell());
+        $this->assertEquals(strlen(self::MOCK_MAC), $this->decorator->tell());
     }
 
     public function testGetContentsExactChunkSize(): void
     {
-        $testData = str_repeat('d', $this->chunkSize);
-        $this->streamMock->method('getSize')->willReturn($this->chunkSize);
-        $this->streamMock->expects($this->never())
+        $testData = str_repeat('d', self::CHUNK_SIZE);
+        $this->stream->method('getSize')->willReturn(self::CHUNK_SIZE);
+        $this->stream->expects($this->never())
             ->method('read');
-        $this->streamMock->expects($this->once())
+        $this->stream->expects($this->once())
             ->method('getContents')
             ->willReturn($testData);
 
         $result = $this->decorator->getContents();
-        $this->assertEquals($this->chunkSize + strlen($this->mockMac), strlen($result));
+        $this->assertEquals(self::CHUNK_SIZE + strlen(self::MOCK_MAC), strlen($result));
         $this->assertTrue($this->decorator->eof());
     }
 
     public function testGetContentsAfterEncryptionError(): void
     {
-        $this->streamMock->method('read')->willReturn('data');
-        $this->encryptorMock->method('update')
+        $this->stream->method('read')->willReturn('data');
+        $this->encryptor->method('update')
             ->willThrowException(new EncryptionException('Error'));
 
         $this->expectException(EncryptionException::class);
@@ -185,15 +185,15 @@ class EncryptedStreamDecoratorGetContentsTest extends TestCase
     public function testGetContentsCalledTwice(): void
     {
         $testData = 'test data';
-        $this->streamMock->method('getSize')->willReturn(strlen($testData));
-        $this->streamMock->expects($this->once())
+        $this->stream->method('getSize')->willReturn(strlen($testData));
+        $this->stream->expects($this->once())
             ->method('getContents')
             ->willReturn($testData);
 
         $firstCall = $this->decorator->getContents();
         $secondCall = $this->decorator->getContents();
 
-        $this->assertSame($testData . $this->mockMac, $firstCall);
+        $this->assertSame($testData . self::MOCK_MAC, $firstCall);
 
         $this->assertSame('', $secondCall);
         $this->assertTrue($this->decorator->eof());
@@ -201,6 +201,6 @@ class EncryptedStreamDecoratorGetContentsTest extends TestCase
 
     protected function tearDown(): void
     {
-        unset($this->decorator, $this->streamMock, $this->encryptorMock);
+        unset($this->decorator, $this->stream, $this->encryptor);
     }
 }

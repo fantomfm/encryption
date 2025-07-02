@@ -15,6 +15,8 @@ class EncryptedStreamDecoratorReadTest extends TestCase
     private StreamInterface $stream;
     private MediaCipherInterface $encryptor;
 
+    private const MOCK_MAC = '__MAC__';
+
     protected function setUp(): void
     {
         $this->stream = $this->createMock(StreamInterface::class);
@@ -23,7 +25,7 @@ class EncryptedStreamDecoratorReadTest extends TestCase
         $this->encryptor = $this->createMock(MediaCipherInterface::class);
         $this->encryptor->method('getBlockSize')->willReturn(16);
         $this->encryptor->method('update')->willReturnArgument(0);
-        $this->encryptor->method('finish')->willReturn('__MAC__');
+        $this->encryptor->method('finish')->willReturn(self::MOCK_MAC);
 
         $this->decorator = new EncryptedStreamDecorator(
             $this->stream,
@@ -39,8 +41,8 @@ class EncryptedStreamDecoratorReadTest extends TestCase
 
         $result = $this->decorator->read(100);
 
-        $this->assertSame('', $result);
-        $this->assertSame(0, $this->decorator->tell());
+        $this->assertSame(self::MOCK_MAC, $result);
+        $this->assertSame(mb_strlen(self::MOCK_MAC, '8bit'), $this->decorator->tell());
         $this->assertTrue($this->decorator->eof());
     }
 
@@ -114,7 +116,7 @@ class EncryptedStreamDecoratorReadTest extends TestCase
         $this->assertFalse($this->decorator->eof());
 
         $secondRead = $this->decorator->read(10);
-        $this->assertSame('', $secondRead);
+        $this->assertSame(self::MOCK_MAC, $secondRead);
         $this->assertTrue($this->decorator->eof());
 
         $thirdRead = $this->decorator->read(10);

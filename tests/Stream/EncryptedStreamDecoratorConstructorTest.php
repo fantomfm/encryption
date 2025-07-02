@@ -16,6 +16,7 @@ class EncryptedStreamDecoratorConstructorTest extends TestCase
     {
         $encryptor = $this->createMock(MediaCipherInterface::class);
         $encryptor->method('getBlockSize')->willReturn(16);
+        
         return $encryptor;
     }
 

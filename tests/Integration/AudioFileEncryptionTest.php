@@ -49,7 +49,8 @@ class AudioFileEncryptionTest extends TestCase
         }
 
         $expectedEncryptedContent = file_get_contents(self::ENCRYPTED_FILE);
-        $this->assertSame($expectedEncryptedContent, $actualEncryptedContent, 'Chunked encryption should match full encryption');
+
+        $this->assertSame($expectedEncryptedContent, $actualEncryptedContent);
     }
 
     public function testEncryptedStreamMetadata(): void
