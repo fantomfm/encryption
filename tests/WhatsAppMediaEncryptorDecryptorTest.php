@@ -15,121 +15,221 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
     private const MAC_SIZE = 10;
     private const BLOCK_SIZE = 16;
 
-    public function testEncryptionAndDecryptionRound(): void
+    private const MEDIA_KEY = '0123456789abcdef0123456789abcdef'; // 32 bytes
+    private const TEST_DATA = 'This is a test message for WhatsApp media encryption/decryption';
+    private const MEDIA_TYPE = MediaType::IMAGE;
+
+    public function testEncryptionAndDecryption(): void
     {
-        $mediaKey = random_bytes(32);
-        $mediaType = MediaType::DOCUMENT;
-        $original = "Data for WhatsApp decryptor test!";
-
-        $encryptor = new WhatsAppMediaEncryptor($mediaKey, $mediaType);
+        $encryptor = new WhatsAppMediaEncryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $iv = $encryptor->start();
+        
+        $firstChunk = substr(self::TEST_DATA, 0, 10);
+        $secondChunk = substr(self::TEST_DATA, 10);
+        
+        $encryptedPart1 = $encryptor->update($firstChunk);
+        $encryptedPart2 = $encryptor->update($secondChunk);
+        $finalEncrypted = $encryptor->finish();
 
-        $encrypted = $encryptor->update($original);
-        $final = $encryptor->finish(); // Содержит последний блок с padding + MAC
-
-        $decryptor = new WhatsAppMediaDecryptor($mediaKey, $mediaType);
+        $decryptor = new WhatsAppMediaDecryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $decryptor->start();
 
-        $decrypted = $decryptor->update($encrypted);
-        $decrypted .= $decryptor->finish($final);
+        $mac = substr($finalEncrypted, -self::MAC_SIZE);
+        $encryptedContent = substr($finalEncrypted, 0, -self::MAC_SIZE);
 
-        $this->assertEquals($original, $decrypted);
+        $decryptedPart1 = $decryptor->update($encryptedPart1);
+        $decryptedPart2 = $decryptor->update($encryptedPart2);
+        $decryptedFinal = $decryptor->finish($encryptedContent . $mac);
+
+        $fullDecrypted = $decryptedPart1 . $decryptedPart2 . $decryptedFinal;
+
+        $this->assertEquals(self::TEST_DATA, $fullDecrypted);
     }
 
     public function testEmptyData(): void
     {
-        $mediaKey = random_bytes(32);
-        $encryptor = new WhatsAppMediaEncryptor($mediaKey, MediaType::DOCUMENT);
-        $iv = $encryptor->start();
+        $encryptor = new WhatsAppMediaEncryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
+        $encryptor->start();
+        
+        $finalEncrypted = $encryptor->finish();
 
-        $final = $encryptor->finish();
-
-        $decryptor = new WhatsAppMediaDecryptor($mediaKey, MediaType::DOCUMENT);
+        $decryptor = new WhatsAppMediaDecryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $decryptor->start();
 
-        $decrypted = $decryptor->finish($final);
+        $mac = substr($finalEncrypted, -self::MAC_SIZE);
+        $encryptedContent = substr($finalEncrypted, 0, -self::MAC_SIZE);
 
-        $this->assertEquals('', $decrypted);
+        $decryptedFinal = $decryptor->finish($encryptedContent . $mac);
+
+        $this->assertEquals('', $decryptedFinal);
     }
 
     public function testDataSmallerThanBlock(): void
     {
-        $mediaKey = random_bytes(32);
-        $original = "small";
-
-        $encryptor = new WhatsAppMediaEncryptor($mediaKey, MediaType::DOCUMENT);
+        $testData = 'small';
+        
+        $encryptor = new WhatsAppMediaEncryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $iv = $encryptor->start();
-        $encrypted = $encryptor->update($original);
-        $final = $encryptor->finish();
+        
+        $encryptedPart1 = $encryptor->update($testData);
+        $finalEncrypted = $encryptor->finish();
 
-        $decryptor = new WhatsAppMediaDecryptor($mediaKey, MediaType::DOCUMENT);
+        $decryptor = new WhatsAppMediaDecryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $decryptor->start();
-        $decrypted = $decryptor->update($encrypted);
-        $decrypted .= $decryptor->finish($final);
 
-        $this->assertEquals($original, $decrypted);
+        $mac = substr($finalEncrypted, -self::MAC_SIZE);
+        $encryptedContent = substr($finalEncrypted, 0, -self::MAC_SIZE);
+
+        $decryptedPart1 = $decryptor->update($encryptedPart1);
+        $decryptedFinal = $decryptor->finish($encryptedContent . $mac);
+
+        $fullDecrypted = $decryptedPart1 . $decryptedFinal;
+
+        $this->assertEquals($testData, $fullDecrypted);
     }
 
     public function testDataExactlyOneBlock(): void
     {
-        $mediaKey = random_bytes(32);
-        $original = str_repeat('A', self::BLOCK_SIZE);
+        $testData = str_repeat('A', self::BLOCK_SIZE);
 
-        $encryptor = new WhatsAppMediaEncryptor($mediaKey, MediaType::DOCUMENT);
+        $encryptor = new WhatsAppMediaEncryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $iv = $encryptor->start();
-        $encrypted = $encryptor->update($original);
-        $final = $encryptor->finish();
+        
+        $encryptedPart1 = $encryptor->update($testData);
+        $finalEncrypted = $encryptor->finish();
 
-        $decryptor = new WhatsAppMediaDecryptor($mediaKey, MediaType::DOCUMENT);
+        $decryptor = new WhatsAppMediaDecryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $decryptor->start();
-        $decrypted = $decryptor->update($encrypted);
-        $decrypted .= $decryptor->finish($final);
 
-        $this->assertEquals($original, $decrypted);
+        $mac = substr($finalEncrypted, -self::MAC_SIZE);
+        $encryptedContent = substr($finalEncrypted, 0, -self::MAC_SIZE);
+
+        $decryptedPart1 = $decryptor->update($encryptedPart1);
+        $decryptedFinal = $decryptor->finish($encryptedContent . $mac);
+
+        $fullDecrypted = $decryptedPart1 . $decryptedFinal;
+
+        $this->assertEquals($testData, $fullDecrypted);
     }
 
     public function testBinaryData(): void
     {
-        $mediaKey = random_bytes(32);
-        $original = random_bytes(100);
+        $testData = random_bytes(100);
 
-        $encryptor = new WhatsAppMediaEncryptor($mediaKey, MediaType::DOCUMENT);
+        $encryptor = new WhatsAppMediaEncryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $iv = $encryptor->start();
-        $encrypted = $encryptor->update($original);
-        $final = $encryptor->finish();
+        
+        $encryptedPart1 = $encryptor->update($testData);
+        $finalEncrypted = $encryptor->finish();
 
-        $decryptor = new WhatsAppMediaDecryptor($mediaKey, MediaType::DOCUMENT);
+        $decryptor = new WhatsAppMediaDecryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $decryptor->start();
-        $decrypted = $decryptor->update($encrypted);
-        $decrypted .= $decryptor->finish($final);
 
-        $this->assertEquals($original, $decrypted);
+        $mac = substr($finalEncrypted, -self::MAC_SIZE);
+        $encryptedContent = substr($finalEncrypted, 0, -self::MAC_SIZE);
+
+        $decryptedPart1 = $decryptor->update($encryptedPart1);
+        $decryptedFinal = $decryptor->finish($encryptedContent . $mac);
+
+        $fullDecrypted = $decryptedPart1 . $decryptedFinal;
+
+        $this->assertEquals($testData, $fullDecrypted);
+    }
+
+    public function testStreamingEncryptionDecryption(): void
+    {
+        $data = str_repeat('a', self::BLOCK_SIZE * 3 + 5);
+        $chunkSizes = [16, 16, 16, 5];
+
+        $encryptor = new WhatsAppMediaEncryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
+        $encrypted = '';
+        foreach ($chunkSizes as $size) {
+            $chunk = substr($data, strlen($encrypted), $size);
+            $encrypted .= $encryptor->update($chunk);
+        }
+        $finalEncrypted = $encryptor->finish();
+        $fullEncryptedData = $encrypted . $finalEncrypted;
+
+        $decryptor = new WhatsAppMediaDecryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
+
+        $decrypted = '';
+        $offset = 0;
+        $totalLength = mb_strlen($fullEncryptedData, '8bit');
+
+        $safeEndIndex = $totalLength - (self::BLOCK_SIZE + self::MAC_SIZE);
+
+        foreach ($chunkSizes as $size) {
+            if ($offset + $size > $safeEndIndex) {
+                break;
+            }
+
+            $chunk = substr($fullEncryptedData, $offset, $size);
+            $decrypted .= $decryptor->update($chunk);
+            $offset += $size;
+        }
+
+        $remaining = substr($fullEncryptedData, $offset);
+        $decrypted .= $decryptor->finish($remaining);
+
+        $this->assertEquals($data, $decrypted);
     }
 
     public function testHmacVerificationFailsOnModifiedData(): void
     {
-        $mediaKey = random_bytes(32);
-        $original = "Data for WhatsApp decryptor test!";
-
-        $encryptor = new WhatsAppMediaEncryptor($mediaKey, MediaType::DOCUMENT);
-        $iv = $encryptor->start();
-
-        $encrypted = $encryptor->update($original);
-        $mac = $encryptor->finish();
-
-        $fullEncrypted = $iv . $encrypted . $mac;
-
-        $tampered = substr($fullEncrypted, 0, -10) . chr(ord(substr($fullEncrypted, -10, 1)) ^ 1) . substr($fullEncrypted, -9);
-
-        $decryptor = new WhatsAppMediaDecryptor($mediaKey, MediaType::DOCUMENT);
+        $encryptor = new WhatsAppMediaEncryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
+        $encryptor->start();
+        $encrypted = $encryptor->update(self::TEST_DATA);
+        $final = $encryptor->finish();
+        
+        $modified = substr($encrypted, 0, 10) 
+                . chr(ord($encrypted[10]) ^ 0xFF) 
+                . substr($encrypted, 11);
+        
+        $decryptor = new WhatsAppMediaDecryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $decryptor->start();
-
-        $macOffset = mb_strlen($tampered, '8bit') - self::MAC_SIZE;
-
+        
+        $decryptor->update($modified);
+        
         $this->expectException(InvalidMacException::class);
+        $this->expectExceptionMessage('MAC verification failed');
 
-        $decryptor->update(substr($tampered, mb_strlen($iv, '8bit'), $macOffset - mb_strlen($iv, '8bit')));
-        $decryptor->finish(substr($tampered, $macOffset));
+        $decryptor->finish($final);
+    }
+
+    public function testHmacVerificationFailsOnModifiedMac(): void
+    {
+        $encryptor = new WhatsAppMediaEncryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
+        $encryptor->start();
+        $encrypted = $encryptor->update(self::TEST_DATA);
+        $mac = $encryptor->finish();
+        
+        $modifiedMac = substr($mac, 0, 2) . chr(ord($mac[2]) ^ 0xFF) . substr($mac, 3);
+        
+        $decryptor = new WhatsAppMediaDecryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
+        $decryptor->start();
+        $decryptor->update($encrypted);
+        
+        $this->expectException(InvalidMacException::class);
+        $this->expectExceptionMessage('MAC verification failed');
+
+        $decryptor->finish($modifiedMac);
+    }
+
+    public function testInvalidMacSize(): void
+    {
+        $encryptor = new WhatsAppMediaEncryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
+        $encryptor->start();
+        $encrypted = $encryptor->update(self::TEST_DATA);
+        $mac = $encryptor->finish();
+        
+        $decryptor = new WhatsAppMediaDecryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
+        $decryptor->start();
+        $decryptor->update($encrypted);
+        
+        $this->expectException(DecryptionException::class);
+        $this->expectExceptionMessage('Final chunk is too small to contain encrypted data and MAC');
+
+        $decryptor->finish(substr($mac, 0, 5));
     }
 
     public function testRemovePaddingReturnsEmptyStringWhenGivenFullPaddingBlock(): void

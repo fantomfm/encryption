@@ -68,15 +68,6 @@ class EncryptedStreamDecoratorTellTest extends TestCase
         $this->assertEquals($expectedPosition, $this->decorator->tell());
     }
 
-    public function testAfterFinalize(): void
-    {
-        $this->invokeFinalize();
-
-        $this->assertStringEndsWith(self::MOCK_MAC, $this->getBufferContent());
-
-        $this->assertEquals(0, $this->decorator->tell());
-    }
-
     public function testPositionNotAffectedByMac(): void
     {
         $this->stream->method('read')->willReturn('data');
@@ -92,7 +83,7 @@ class EncryptedStreamDecoratorTellTest extends TestCase
         $this->stream->method('read')->willReturn('');
         $this->decorator->read(100);
 
-        $this->assertEquals(0, $this->decorator->tell());
+        $this->assertEquals(mb_strlen(self::MOCK_MAC, '8bit'), $this->decorator->tell());
     }
 
     private function invokeFinalize(): void

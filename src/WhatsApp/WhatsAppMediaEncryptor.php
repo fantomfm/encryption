@@ -89,9 +89,6 @@ class WhatsAppMediaEncryptor extends WhatsAppMediaCipher
     private function addPadding(string $data): string
     {
         $padLength = self::BLOCK_SIZE - (mb_strlen($data, '8bit') % self::BLOCK_SIZE);
-        // if ($padLength === 0) {
-        //     $padLength = self::BLOCK_SIZE;
-        // }
 
         return $data . str_repeat(chr($padLength), $padLength);
     }

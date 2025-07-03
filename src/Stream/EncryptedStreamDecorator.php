@@ -155,18 +155,8 @@ class EncryptedStreamDecorator implements StreamInterface
         }
 
         while (!$this->eof()) {
-            $chunk = $this->stream->read($this->chunkSize);
-            if ($chunk === '') {
-                $this->sourceEof = true;
-                break;
-            }
-            $result .= $this->encryptor->update($chunk);
+            $result .= $this->read(1024);
         }
-
-        $result .= $this->finalize();
-
-        $this->position += strlen($result);
-        $this->sourceEof = true;
 
         return $result;
     }
