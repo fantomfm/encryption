@@ -60,7 +60,6 @@ class EncryptedStreamDecoratorTellTest extends TestCase
         $this->stream->method('getSize')->willReturn(200);
         $this->stream->method('getContents')->willReturn($testData);
         $this->stream->method('read')->willReturn($testData);
-        $this->stream->method('eof')->willReturn(true);
 
         $contents = $this->decorator->getContents();
 
@@ -84,23 +83,6 @@ class EncryptedStreamDecoratorTellTest extends TestCase
         $this->decorator->read(100);
 
         $this->assertEquals(mb_strlen(self::MOCK_MAC, '8bit'), $this->decorator->tell());
-    }
-
-    private function invokeFinalize(): void
-    {
-        $reflection = new \ReflectionClass($this->decorator);
-        $method = $reflection->getMethod('finalize');
-        $method->setAccessible(true);
-        $method->invoke($this->decorator);
-    }
-
-    private function getBufferContent(): string
-    {
-        $reflection = new \ReflectionClass($this->decorator);
-        $property = $reflection->getProperty('buffer');
-        $property->setAccessible(true);
-
-        return $property->getValue($this->decorator);
     }
 
     protected function tearDown(): void

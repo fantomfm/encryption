@@ -6,9 +6,7 @@ namespace EncryptionTest\Integration;
 
 use Encryption\Enum\MediaType;
 use Encryption\Stream\DecryptedStreamDecorator;
-use Encryption\Stream\EncryptedStreamDecorator;
 use Encryption\WhatsApp\WhatsAppMediaDecryptor;
-use Encryption\WhatsApp\WhatsAppMediaEncryptor;
 use PHPUnit\Framework\TestCase;
 use GuzzleHttp\Psr7\Stream;
 
@@ -29,9 +27,6 @@ class FileDecryptionTest extends TestCase
         $stream = $this->createStreamFromString($encryptedContent);
         $decryptor = new WhatsAppMediaDecryptor($mediaKey, self::MEDIA_TYPE);
         $stream = new DecryptedStreamDecorator($stream, $decryptor);
-
-        echo mb_strlen($encryptedContent, '8bit') . PHP_EOL;
-        echo bin2hex(substr($encryptedContent, -10));
 
         $actualDecryptedContent = $stream->getContents();
 

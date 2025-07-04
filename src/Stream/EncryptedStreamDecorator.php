@@ -18,6 +18,8 @@ class EncryptedStreamDecorator implements StreamInterface
 
     private int $blockSize;
 
+    private ?StreamSidecarGenerator $sidecar = null;
+
     public function __construct(
         private StreamInterface $stream,
         private MediaCipherInterface $encryptor,
@@ -35,6 +37,7 @@ class EncryptedStreamDecorator implements StreamInterface
                 $this->blockSize
             ));
         }
+        $this->sidecar = new StreamSidecarGenerator($this->encryptor->getMacKey());
     }
 
     public function __toString(): string
@@ -125,11 +128,14 @@ class EncryptedStreamDecorator implements StreamInterface
 
             if (empty($chunk)) {
                 $this->sourceEof = true;
-                $this->buffer .= $this->finalize();
+                $encrypted = $this->finalize();
+                $this->buffer .= $encrypted;
                 break;
             }
             
-            $this->buffer .= $this->encryptor->update($chunk);
+            $encrypted = $this->encryptor->update($chunk);
+            $this->sidecar->processChunk($encrypted);
+            $this->buffer .= $encrypted;
         }
 
         return $this->extractFromBuffer($length);
@@ -146,7 +152,9 @@ class EncryptedStreamDecorator implements StreamInterface
 
         if ($this->stream->getSize() !== null && $this->stream->getSize() <= $this->chunkSize) {
             $data = $this->stream->getContents();
-            $result = $this->encryptor->update($data) . $this->finalize();
+            $encrypted = $this->encryptor->update($data) . $this->finalize();
+            $result = $this->sidecar->processChunk($encrypted);
+
             $this->position += mb_strlen($result, '8bit');
 
             $this->sourceEof = true;
@@ -155,7 +163,7 @@ class EncryptedStreamDecorator implements StreamInterface
         }
 
         while (!$this->eof()) {
-            $result .= $this->read(1024);
+            $result .= $this->read($this->chunkSize);
         }
 
         return $result;
@@ -166,6 +174,11 @@ class EncryptedStreamDecorator implements StreamInterface
         return $this->stream->getMetadata($key);
     }
 
+    public function getSidecar(): string
+    {
+        return $this->sidecar->getSidecar();
+    }
+
     private function finalize(): string
     {
         if ($this->finalized) {
@@ -174,7 +187,10 @@ class EncryptedStreamDecorator implements StreamInterface
 
         $this->finalized = true;
 
-        return $this->encryptor->finish();
+        $finalized = $this->encryptor->finish();
+        $this->sidecar->processChunk($finalized);
+
+        return $finalized;
     }
 
     private function calculateReadSize(int $requested): int
