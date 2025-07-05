@@ -6,6 +6,7 @@ namespace Encryption\Stream;
 
 use Encryption\Exception\StreamException;
 use Encryption\Interface\MediaCipherInterface;
+use Encryption\Interface\MediaStreamInfoGeneratorInterface;
 use Psr\Http\Message\StreamInterface;
 use InvalidArgumentException;
 
@@ -18,12 +19,11 @@ class EncryptedStreamDecorator implements StreamInterface
 
     private int $blockSize;
 
-    private ?StreamSidecarGenerator $sidecar = null;
-
     public function __construct(
         private StreamInterface $stream,
         private MediaCipherInterface $encryptor,
-        private int $chunkSize = 65536
+        private int $chunkSize = 65536,
+        private ?MediaStreamInfoGeneratorInterface $sidecar = null
     ) {
         if (!$stream->isReadable()) {
             throw new InvalidArgumentException('Stream must be readable');
@@ -37,7 +37,6 @@ class EncryptedStreamDecorator implements StreamInterface
                 $this->blockSize
             ));
         }
-        $this->sidecar = new StreamSidecarGenerator($this->encryptor->getMacKey());
     }
 
     public function __toString(): string
@@ -62,7 +61,7 @@ class EncryptedStreamDecorator implements StreamInterface
         $this->finalize();
         $this->buffer = '';
         $this->sourceEof = true;
-        
+
         return $this->stream->detach();
     }
 
@@ -132,10 +131,8 @@ class EncryptedStreamDecorator implements StreamInterface
                 $this->buffer .= $encrypted;
                 break;
             }
-            
-            $encrypted = $this->encryptor->update($chunk);
-            $this->sidecar->processChunk($encrypted);
-            $this->buffer .= $encrypted;
+
+            $this->buffer .= $this->update($chunk);
         }
 
         return $this->extractFromBuffer($length);
@@ -152,8 +149,7 @@ class EncryptedStreamDecorator implements StreamInterface
 
         if ($this->stream->getSize() !== null && $this->stream->getSize() <= $this->chunkSize) {
             $data = $this->stream->getContents();
-            $encrypted = $this->encryptor->update($data) . $this->finalize();
-            $result = $this->sidecar->processChunk($encrypted);
+            $result = $this->update($data) . $this->finalize();
 
             $this->position += mb_strlen($result, '8bit');
 
@@ -176,7 +172,19 @@ class EncryptedStreamDecorator implements StreamInterface
 
     public function getSidecar(): string
     {
+        if (!$this->sidecar) {
+            throw new StreamException('Sidecar generation was not enabled');
+        }
+
         return $this->sidecar->getSidecar();
+    }
+
+    private function update($data): string
+    {
+        $encrypted = $this->encryptor->update($data);
+        $this->sidecar?->update($encrypted);
+
+        return $encrypted;
     }
 
     private function finalize(): string
@@ -188,7 +196,8 @@ class EncryptedStreamDecorator implements StreamInterface
         $this->finalized = true;
 
         $finalized = $this->encryptor->finish();
-        $this->sidecar->processChunk($finalized);
+        $this->sidecar?->update($finalized);
+        $this->sidecar?->finish();
 
         return $finalized;
     }
