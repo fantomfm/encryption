@@ -10,5 +10,4 @@ interface MediaCipherInterface
 
     public function getBlockSize(): int;
     public function getMacSize(): int;
-    public function getMacKey(): string;
 }

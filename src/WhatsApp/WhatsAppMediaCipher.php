@@ -87,9 +87,4 @@ abstract class WhatsAppMediaCipher implements MediaCipherInterface
     {
         return self::MAC_SIZE;
     }
-
-    public function getMacKey(): string
-    {
-        return $this->macKey;
-    }
 }

@@ -20,35 +20,14 @@ class FileSidecarTest extends TestCase
 
     private const MEDIA_TYPE = MediaType::VIDEO;
 
-    public function testFileEncryptionMatchesPrecomputedResult(): void
-    {
-        $originalContent = file_get_contents(self::ORIGINAL_FILE);
-        $expectedEncryptedContent = file_get_contents(self::ENCRYPTED_FILE);
-        $mediaKey = trim(file_get_contents(self::KEY_FILE));
-        $expectedSideCar = file_get_contents(self::SIDECAR_FILE);
-
-        $stream = $this->createStreamFromString($originalContent);
-        $encryptor = new WhatsAppMediaEncryptor($mediaKey, self::MEDIA_TYPE);
-        $sidecarGenerator = new WhatsAppMediaStreamInfoGenerator($encryptor->getMacKey(), $encryptor->getIv());
-        $decorator = new EncryptedStreamDecorator($stream, $encryptor, sidecar: $sidecarGenerator);
-
-        $actualEncryptedContent = $decorator->getContents();
-        $actualSidecar = $decorator->getSidecar();
-
-        $this->assertNotEmpty($actualEncryptedContent);
-        $this->assertNotEquals($originalContent, $actualEncryptedContent);
-        $this->assertSame($expectedEncryptedContent, $actualEncryptedContent);
-        $this->assertSame($expectedSideCar, $actualSidecar);
-    }
-
-    public function testSidecar(): void
+    public function testFileSidecarGenerationMatchesPrecomputedResult(): void
     {
         $expectedEncryptedContent = file_get_contents(self::ENCRYPTED_FILE);
         $mediaKey = trim(file_get_contents(self::KEY_FILE));
         $expectedSideCar = file_get_contents(self::SIDECAR_FILE);
 
         $encryptor = new WhatsAppMediaEncryptor($mediaKey, self::MEDIA_TYPE);
-        $sidecarGenerator = new WhatsAppMediaStreamInfoGenerator($encryptor->getMacKey(), $encryptor->getIv());
+        $sidecarGenerator = new WhatsAppMediaStreamInfoGenerator($encryptor->getMacKey(), $encryptor->start());
 
         $sidecarGenerator->update($expectedEncryptedContent);
         $actualSidecar = $sidecarGenerator->finish();
@@ -56,24 +35,47 @@ class FileSidecarTest extends TestCase
         $this->assertSame($expectedSideCar, $actualSidecar);
     }
 
-    public function testFileEncryptionInChunks(): void
+    public function testFileGenerationSidecarWithEncryptionStream(): void
     {
         $originalContent = file_get_contents(self::ORIGINAL_FILE);
+        $expectedEncryptedContent = file_get_contents(self::ENCRYPTED_FILE);
         $mediaKey = trim(file_get_contents(self::KEY_FILE));
+        $expectedSideCar = file_get_contents(self::SIDECAR_FILE);
 
         $stream = $this->createStreamFromString($originalContent);
         $encryptor = new WhatsAppMediaEncryptor($mediaKey, self::MEDIA_TYPE);
-        $encryptedStream = new EncryptedStreamDecorator($stream, $encryptor, 1024);
+        $sidecarGenerator = new WhatsAppMediaStreamInfoGenerator($encryptor->getMacKey(), $encryptor->start());
+        $decorator = new EncryptedStreamDecorator($stream, $encryptor, sidecar: $sidecarGenerator);
+
+        $actualEncryptedContent = $decorator->getContents();
+        $actualSidecar = $decorator->getSidecar();
+
+        $this->assertSame($expectedEncryptedContent, $actualEncryptedContent);
+        $this->assertSame($expectedSideCar, $actualSidecar);
+    }
+
+    public function testFileGenerationSidecarWithEncryptionInChunks(): void
+    {
+        $originalContent = file_get_contents(self::ORIGINAL_FILE);
+        $mediaKey = trim(file_get_contents(self::KEY_FILE));
+        $expectedSideCar = file_get_contents(self::SIDECAR_FILE);
+
+        $stream = $this->createStreamFromString($originalContent);
+        $encryptor = new WhatsAppMediaEncryptor($mediaKey, self::MEDIA_TYPE);
+        $sidecarGenerator = new WhatsAppMediaStreamInfoGenerator($encryptor->getMacKey(), $encryptor->start());
+        $decorator = new EncryptedStreamDecorator($stream, $encryptor, 1024, $sidecarGenerator);
 
         $actualEncryptedContent = '';
-        while (!$encryptedStream->eof()) {
-            $chunk = $encryptedStream->read(1024);
+        while (!$decorator->eof()) {
+            $chunk = $decorator->read(1024);
             $actualEncryptedContent .= $chunk;
         }
 
         $expectedEncryptedContent = file_get_contents(self::ENCRYPTED_FILE);
+        $actualSidecar = $decorator->getSidecar();
 
         $this->assertSame($expectedEncryptedContent, $actualEncryptedContent);
+        $this->assertSame($expectedSideCar, $actualSidecar);
     }
 
     private function createStreamFromString(string $content): Stream

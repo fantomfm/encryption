@@ -4,24 +4,28 @@ declare(strict_types=1);
 
 namespace Encryption\WhatsApp;
 
-use Encryption\Exception\EncryptionException;
+use Encryption\Exception\StreamInfoException;
 use Encryption\Interface\MediaStreamInfoGeneratorInterface;
-use http\Exception\InvalidArgumentException;
+use InvalidArgumentException;
 
 class WhatsAppMediaStreamInfoGenerator implements MediaStreamInfoGeneratorInterface
 {
     private const CHUNK_SIZE = 65536;
     private const IV_SIZE = 16;
+    private const OVERLAP_SIZE = 16;
     private const SIGNATURE_SIZE = 10;
 
     private string $sidecar = '';
     private string $buffer = '';
     private string $overlap = '';
-    protected bool $finalized = false;
     private bool $isFirstChunk = true;
+    protected bool $finalized = false;
 
     public function __construct(private string $macKey, private string $iv)
     {
+        if (mb_strlen($macKey, '8bit') !== 32) {
+            throw new InvalidArgumentException('macKey must be 32 bytes long');
+        }
         if (mb_strlen($iv, '8bit') !== self::IV_SIZE) {
             throw new InvalidArgumentException('IV must be 16 bytes long');
         }
@@ -30,7 +34,7 @@ class WhatsAppMediaStreamInfoGenerator implements MediaStreamInfoGeneratorInterf
     public function update(string $chunk): string
     {
         if ($this->finalized) {
-            throw new EncryptionException("Generator already finalized");
+            throw new StreamInfoException("Generator already finalized");
         }
 
         $this->buffer .= $chunk;
@@ -41,6 +45,8 @@ class WhatsAppMediaStreamInfoGenerator implements MediaStreamInfoGeneratorInterf
 
             $this->processChunk($chunkToProcess);
         }
+
+        error_log('$this->buffer: ' . bin2hex($this->buffer)) . PHP_EOL;
 
         return '';
     }
@@ -69,14 +75,13 @@ class WhatsAppMediaStreamInfoGenerator implements MediaStreamInfoGeneratorInterf
 
     private function processChunk(string $chunk): void
     {
-        if ($this->isFirstChunk) {
-            $dataToSign = $this->iv . $chunk;
-            $this->isFirstChunk = false;
-        } else {
-            $dataToSign = $this->overlap . $chunk;
-        }
+        $dataToSign = $this->isFirstChunk
+            ? $this->iv . $chunk
+            : $this->overlap . $chunk;
 
-        $this->overlap = substr($chunk, -self::IV_SIZE);
+        $this->isFirstChunk = false;
+
+        $this->overlap = substr($chunk, -self::OVERLAP_SIZE);
 
         $mac = hash_hmac('sha256', $dataToSign, $this->macKey, true);
         $this->sidecar .= substr($mac, 0, self::SIGNATURE_SIZE);

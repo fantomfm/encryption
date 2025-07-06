@@ -55,9 +55,9 @@ class WhatsAppMediaEncryptor extends WhatsAppMediaCipher
         return $encrypted . $mac;
     }
 
-    public function getIv(): string
+    public function getMacKey(): string
     {
-        return $this->iv;
+        return $this->macKey;
     }
 
     private function encryptChunk(string $chunk): string

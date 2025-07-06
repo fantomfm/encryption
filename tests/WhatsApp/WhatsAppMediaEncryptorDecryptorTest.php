@@ -1,13 +1,13 @@
 <?php
 
-namespace EncryptionTest;
+namespace EncryptionTest\WhatsApp;
 
-use PHPUnit\Framework\TestCase;
-use Encryption\WhatsApp\WhatsAppMediaEncryptor;
-use Encryption\WhatsApp\WhatsAppMediaDecryptor;
 use Encryption\Enum\MediaType;
 use Encryption\Exception\DecryptionException;
 use Encryption\Exception\InvalidMacException;
+use Encryption\WhatsApp\WhatsAppMediaDecryptor;
+use Encryption\WhatsApp\WhatsAppMediaEncryptor;
+use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
 final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
@@ -23,10 +23,10 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
     {
         $encryptor = new WhatsAppMediaEncryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $iv = $encryptor->start();
-        
+
         $firstChunk = substr(self::TEST_DATA, 0, 10);
         $secondChunk = substr(self::TEST_DATA, 10);
-        
+
         $encryptedPart1 = $encryptor->update($firstChunk);
         $encryptedPart2 = $encryptor->update($secondChunk);
         $finalEncrypted = $encryptor->finish();
@@ -50,7 +50,7 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
     {
         $encryptor = new WhatsAppMediaEncryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $encryptor->start();
-        
+
         $finalEncrypted = $encryptor->finish();
 
         $decryptor = new WhatsAppMediaDecryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
@@ -67,17 +67,12 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
     public function testDataSmallerThanBlock(): void
     {
         $testData = 'small';
-        
+
         $encryptor = new WhatsAppMediaEncryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $iv = $encryptor->start();
-        
+
         $encrypted = $encryptor->update($testData);
         $finalEncrypted = $encryptor->finish();
-
-        echo '$encrypted: ' . $encrypted . PHP_EOL;
-        echo '$encrypted len: ' . mb_strlen($encrypted, '8bit') . PHP_EOL;
-        echo '$finalEncrypted: ' . $finalEncrypted . PHP_EOL;
-        echo '$finalEncrypted len: ' . mb_strlen($finalEncrypted, '8bit') . PHP_EOL;
 
         $decryptor = new WhatsAppMediaDecryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $decryptor->start();
@@ -87,11 +82,6 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
 
         $decrypted = $decryptor->update($encrypted);
         $decryptedFinal = $decryptor->finish($encryptedContent . $mac);
-
-        echo '$decrypted: ' . $decrypted . PHP_EOL;
-        echo '$decrypted len: ' . mb_strlen($decrypted, '8bit') . PHP_EOL;
-        echo '$decryptedFinal: ' . $decryptedFinal . PHP_EOL;
-        echo '$decryptedFinal len: ' . mb_strlen($decryptedFinal, '8bit') . PHP_EOL;
 
         $fullDecrypted = $decrypted . $decryptedFinal;
 
@@ -104,7 +94,7 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
 
         $encryptor = new WhatsAppMediaEncryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $iv = $encryptor->start();
-        
+
         $encrypted = $encryptor->update($testData);
         $finalEncrypted = $encryptor->finish();
 
@@ -128,7 +118,7 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
 
         $encryptor = new WhatsAppMediaEncryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $iv = $encryptor->start();
-        
+
         $encryptedPart1 = $encryptor->update($testData);
         $finalEncrypted = $encryptor->finish();
 
@@ -190,16 +180,16 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
         $encryptor->start();
         $encrypted = $encryptor->update(self::TEST_DATA);
         $final = $encryptor->finish();
-        
-        $modified = substr($encrypted, 0, 10) 
-                . chr(ord($encrypted[10]) ^ 0xFF) 
+
+        $modified = substr($encrypted, 0, 10)
+                . chr(ord($encrypted[10]) ^ 0xFF)
                 . substr($encrypted, 11);
-        
+
         $decryptor = new WhatsAppMediaDecryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $decryptor->start();
-        
+
         $decryptor->update($modified);
-        
+
         $this->expectException(InvalidMacException::class);
         $this->expectExceptionMessage('MAC verification failed');
 
@@ -212,13 +202,13 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
         $encryptor->start();
         $encrypted = $encryptor->update(self::TEST_DATA);
         $mac = $encryptor->finish();
-        
+
         $modifiedMac = substr($mac, 0, 2) . chr(ord($mac[2]) ^ 0xFF) . substr($mac, 3);
-        
+
         $decryptor = new WhatsAppMediaDecryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $decryptor->start();
         $decryptor->update($encrypted);
-        
+
         $this->expectException(InvalidMacException::class);
         $this->expectExceptionMessage('MAC verification failed');
 
@@ -231,11 +221,11 @@ final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
         $encryptor->start();
         $encrypted = $encryptor->update(self::TEST_DATA);
         $mac = $encryptor->finish();
-        
+
         $decryptor = new WhatsAppMediaDecryptor(self::MEDIA_KEY, self::MEDIA_TYPE);
         $decryptor->start();
         $decryptor->update($encrypted);
-        
+
         $this->expectException(DecryptionException::class);
         $this->expectExceptionMessage('Final chunk is too small to contain encrypted data and MAC');
 

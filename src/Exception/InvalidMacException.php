@@ -2,8 +2,6 @@
 
 namespace Encryption\Exception;
 
-use RuntimeException;
-
-class InvalidMacException extends RuntimeException
+class InvalidMacException extends \RuntimeException
 {
 }
