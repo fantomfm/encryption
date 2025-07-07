@@ -1,5 +1,5 @@
 {
-    "name": "fantomfm/whatsapp-encryption",
+    "name": "fantomfm/encryption",
     "description": "PSR-7 stream encryption/decryption implementing WhatsApp encryption protocol",
     "type": "library",
     "license": "MIT",
