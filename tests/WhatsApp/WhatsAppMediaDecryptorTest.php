@@ -10,7 +10,7 @@ use Encryption\WhatsApp\WhatsAppMediaEncryptor;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
-final class WhatsAppMediaEncryptorDecryptorTest extends TestCase
+final class WhatsAppMediaDecryptorTest extends TestCase
 {
     private const MAC_SIZE = 10;
     private const BLOCK_SIZE = 16;

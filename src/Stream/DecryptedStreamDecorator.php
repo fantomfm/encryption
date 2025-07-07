@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Encryption\Stream;
 
+use Encryption\Exception\DecryptionException;
 use Encryption\Exception\StreamException;
 use Encryption\Interface\MediaCipherInterface;
 use Psr\Http\Message\StreamInterface;
@@ -84,12 +85,12 @@ class DecryptedStreamDecorator implements StreamInterface
 
     public function seek(int $offset, int $whence = SEEK_SET): void
     {
-        throw new StreamException('Encrypted stream does not support seeking');
+        throw new StreamException('Decrypted stream does not support seeking');
     }
 
     public function rewind(): void
     {
-        throw new StreamException('Encrypted stream does not support seeking');
+        throw new StreamException('Decrypted stream does not support seeking');
     }
 
     public function isWritable(): bool
@@ -99,7 +100,7 @@ class DecryptedStreamDecorator implements StreamInterface
 
     public function write(string $string): int
     {
-        throw new StreamException('Cannot write to an encrypted read-only stream');
+        throw new StreamException('Cannot write to an decrypted read-only stream');
     }
 
     public function isReadable(): bool
@@ -195,8 +196,14 @@ class DecryptedStreamDecorator implements StreamInterface
     private function getDecryptedFinal(string $finalChunk): string
     {
         $offset = $this->getFinalOffsetSize();
-        if (mb_strlen($finalChunk, '8bit') < $offset) {
-            throw new StreamException('Final chunk is too small for decryption');
+        $chunkLength = mb_strlen($finalChunk, '8bit');
+    
+        if ($chunkLength < $offset) {
+            try {
+                return $this->finalize($finalChunk);
+            } catch (DecryptionException $e) {
+                throw new StreamException('Final chunk is too small for decryption');
+            }
         }
 
         $encrypted = substr($finalChunk, 0, -$offset);

@@ -16,19 +16,6 @@ use Psr\Http\Message\StreamInterface;
 class WhatsAppDecryptionTest extends TestCase
 {
     private const MEDIA_KEY = '0123456789abcdef0123456789abcdef';
-    private const TEST_FILE = __DIR__ . '/testfile.bin';
-
-    public static function setUpBeforeClass(): void
-    {
-        file_put_contents(self::TEST_FILE, random_bytes(1024 * 1024));
-    }
-
-    public static function tearDownAfterClass(): void
-    {
-        if (file_exists(self::TEST_FILE)) {
-            unlink(self::TEST_FILE);
-        }
-    }
 
     public function testVariousStreamSizes(): void
     {
@@ -62,6 +49,35 @@ class WhatsAppDecryptionTest extends TestCase
 
             $this->assertSame($plaintext, $decryptedContent);
         }
+    }
+
+    public function testDecryptionConsistencyWithChunkedReading(): void
+    {
+        $mediaKey = self::MEDIA_KEY;
+        $mediaType = MediaType::VIDEO;
+        $original = random_bytes(1024 * 1024);
+
+        $fullStream = $this->createStreamFromString($original);
+        $fullEncryptor = new WhatsAppMediaEncryptor($mediaKey, $mediaType);
+        $fullEncryptedStream = new EncryptedStreamDecorator(
+            $fullStream,
+            $fullEncryptor
+        );
+        $fullEncrypted = $fullEncryptedStream->getContents();
+
+        $encryptStream = $this->createStreamFromString($fullEncrypted);
+        $chunkedDecryptor = new WhatsAppMediaDecryptor($mediaKey, $mediaType);
+        $chunkedDecryptedStream = new DecryptedStreamDecorator(
+            $encryptStream,
+            $chunkedDecryptor
+        );
+
+        $chunkedDecrypted = '';
+        while (!$chunkedDecryptedStream->eof()) {
+            $chunkedDecrypted .= $chunkedDecryptedStream->read(16384);
+        }
+
+        $this->assertSame($original, $chunkedDecrypted);
     }
 
     private function createStreamFromString(string $content): StreamInterface

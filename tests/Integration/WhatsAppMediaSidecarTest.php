@@ -8,6 +8,7 @@ use Encryption\Enum\MediaType;
 use Encryption\Stream\EncryptedStreamDecorator;
 use Encryption\WhatsApp\WhatsAppMediaEncryptor;
 use Encryption\WhatsApp\WhatsAppMediaStreamInfoGenerator;
+use Error;
 use GuzzleHttp\Psr7\Stream;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\StreamInterface;
@@ -61,17 +62,12 @@ class WhatsAppMediaSidecarTest extends TestCase
             $encryptedContent = $encryptedStream->getContents();
             $sidecar = $encryptedStream->getSidecar();
 
-            if ($size > 0) {
-                $expectedSidecarSize = (int)ceil(($size + 16) / 65536) * 10;
-                $this->assertSame(
-                    $expectedSidecarSize,
-                    strlen($sidecar),
-                    "Sidecar size mismatch for {$description}"
-                );
-            } else {
-                echo bin2hex($sidecar);
-                $this->assertEmpty($sidecar, "Sidecar should be empty for empty stream");
-            }
+            $expectedSidecarSize = (int)ceil(($size + 16) / 65536) * 10;
+            $this->assertSame(
+                $expectedSidecarSize,
+                strlen($sidecar),
+                "Sidecar size mismatch for {$description}"
+            );
         }
     }
 
@@ -81,7 +77,6 @@ class WhatsAppMediaSidecarTest extends TestCase
         $mediaType = MediaType::VIDEO;
         $plaintext = random_bytes(1024 * 1024);
 
-        // Полный проход
         $fullStream = $this->createStreamFromString($plaintext);
         $fullEncryptor = new WhatsAppMediaEncryptor($mediaKey, $mediaType);
         $fullSidecarGenerator = new WhatsAppMediaStreamInfoGenerator(
@@ -111,7 +106,7 @@ class WhatsAppMediaSidecarTest extends TestCase
         );
 
         while (!$chunkedEncryptedStream->eof()) {
-            $chunkedEncryptedStream->read(16384); // Читаем по 16KB
+            $chunkedEncryptedStream->read(16384);
         }
         $chunkedSidecar = $chunkedEncryptedStream->getSidecar();
 
@@ -135,7 +130,6 @@ class WhatsAppMediaSidecarTest extends TestCase
             $encryptor->start()
         );
 
-        // Обрабатываем данные двумя чанками
         $firstChunk = substr($testData, 0, 65536);
         $secondChunk = substr($testData, 65536);
 

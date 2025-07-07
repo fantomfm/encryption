@@ -46,8 +46,6 @@ class WhatsAppMediaStreamInfoGenerator implements MediaStreamInfoGeneratorInterf
             $this->processChunk($chunkToProcess);
         }
 
-        error_log('$this->buffer: ' . bin2hex($this->buffer)) . PHP_EOL;
-
         return '';
     }
 
@@ -57,7 +55,6 @@ class WhatsAppMediaStreamInfoGenerator implements MediaStreamInfoGeneratorInterf
             return $this->sidecar;
         }
 
-        // Process remaining data
         $remainingData = $this->buffer . $chunk;
         if (!empty($remainingData)) {
             $this->processChunk($remainingData);

@@ -195,11 +195,12 @@ class EncryptedStreamDecorator implements StreamInterface
 
         $this->finalized = true;
 
-        $finalized = $this->encryptor->finish();
-        $this->sidecar?->update($finalized);
+        $finalizedData = $this->encryptor->finish();
+
+        $this->sidecar?->update($finalizedData);
         $this->sidecar?->finish();
 
-        return $finalized;
+        return $finalizedData;
     }
 
     private function calculateReadSize(int $requested): int

@@ -13,9 +13,14 @@ use Psr\Http\Message\StreamInterface;
 
 class DecryptedStreamDecoratorTest extends TestCase
 {
+    use PropertyTrait;
+
     private $stream;
     private $decryptor;
     private $decorator;
+
+    private const BLOCK_SIZE = 16;
+    private const MAC_SIZE = 10;
 
     protected function setUp(): void
     {
@@ -106,7 +111,7 @@ class DecryptedStreamDecoratorTest extends TestCase
     public function testSeekThrowsException()
     {
         $this->expectException(StreamException::class);
-        $this->expectExceptionMessage('Encrypted stream does not support seeking');
+        $this->expectExceptionMessage('Decrypted stream does not support seeking');
         
         $this->decorator->seek(0);
     }
@@ -114,7 +119,7 @@ class DecryptedStreamDecoratorTest extends TestCase
     public function testRewindThrowsException()
     {
         $this->expectException(StreamException::class);
-        $this->expectExceptionMessage('Encrypted stream does not support seeking');
+        $this->expectExceptionMessage('Decrypted stream does not support seeking');
         
         $this->decorator->rewind();
     }
@@ -127,7 +132,7 @@ class DecryptedStreamDecoratorTest extends TestCase
     public function testWriteThrowsException()
     {
         $this->expectException(StreamException::class);
-        $this->expectExceptionMessage('Cannot write to an encrypted read-only stream');
+        $this->expectExceptionMessage('Cannot write to an decrypted read-only stream');
         
         $this->decorator->write('data');
     }
@@ -153,69 +158,66 @@ class DecryptedStreamDecoratorTest extends TestCase
         $this->assertSame(4, $this->decorator->tell());
     }
 
-    public function testReadWithStreamData(): void
-    {
-         // Настройка размеров
-        $blockSize = 16;
-        $macSize = 10;
-        $finalOffset = $blockSize + $macSize; // 48 байт
-        
-        $this->decryptor->method('getBlockSize')->willReturn($blockSize);
-        $this->decryptor->method('getMacSize')->willReturn($macSize);
-        
-        // Тестовые данные
-        $regularData = str_repeat('a', 32); // обычные данные
-        $finalChunk = str_repeat('b', $finalOffset); // финальный чанк (48 байт)
-        
-        // Ожидаемые результаты
-        $decryptedRegular = 'decrypted_regular_data';
-        $finalResult = 'final_result';
-        
-        // Настройка поведения stream
-        $this->stream->method('isReadable')->willReturn(true);
-        $this->stream->method('eof')
-            ->willReturnOnConsecutiveCalls(false, true);
-        
-        $this->stream->method('read')
-            ->willReturnOnConsecutiveCalls($regularData, $finalChunk);
-        
-        // Настройка поведения decryptor
-        $this->decryptor->expects($this->once())
-            ->method('update')
-            ->with($regularData)
-            ->willReturn($decryptedRegular);
-            
-        // Для финального чанка проверяем, что он полностью передается в getDecryptedFinal
-        // и там уже будет разделен на данные и MAC
-        $this->decryptor->expects($this->once())
-            ->method('finish')
-            ->with(substr($finalChunk, -$macSize))
-            ->willReturn($finalResult);
-        
-        // Первое чтение - должно вернуть decryptedRegular
-        $result1 = $this->decorator->read(1024);
-        $this->assertEquals($decryptedRegular, $result1);
-        
-        // Второе чтение - должно вернуть результат finish
-        $result2 = $this->decorator->read(1024);
-        $this->assertEquals($finalResult, $result2);
-        
-        // Проверка, что поток закончился
-        $this->assertTrue($this->decorator->eof());
-    }
-
     public function testReadWithPartialBuffer()
     {
         $this->setPrivateProperty($this->decorator, 'buffer', 'partial');
+    
+        $encryptedData = str_repeat('E', self::BLOCK_SIZE);
+        $mac = str_repeat('X', self::MAC_SIZE);
+        $finalChunk = $encryptedData . $mac;
         
         $this->stream->method('eof')->willReturn(false, true);
-        $this->stream->method('read')->willReturn('encrypted_data');
+        $this->stream->method('read')->willReturn($finalChunk);
         $this->decryptor->method('update')->willReturn('_more_data');
         $this->decryptor->method('finish')->willReturn('_final');
         
-        $result = $this->decorator->read(20);
+        $result = $this->decorator->read(23);
         
         $this->assertSame('partial_more_data_final', $result);
+    }
+
+    public function testReadWithStreamData(): void
+    {
+        $this->stream->method('eof')
+            ->willReturnOnConsecutiveCalls(false, false, true);
+        
+        $this->stream->method('read')
+            ->willReturnCallback(function($length) {
+                static $callCount = 0;
+                $callCount++;
+                
+                if ($callCount === 1) {
+                    return '16B_ENCRYPTED_DA';
+                }
+                
+                if ($callCount === 2) {
+                    return str_repeat('E', 16) . str_repeat('X', 10);
+                }
+                
+                return '';
+            });
+        
+        $this->decryptor->method('update')
+            ->willReturnCallback(function($chunk) {
+                if ($chunk === '16B_ENCRYPTED_DA') {
+                    return '16B_DECRYPTED_D';
+                }
+                return '';
+            });
+        $this->decryptor->method('finish')
+            ->with('')
+            ->willReturn('_VERIFIED');
+        
+        $result1 = $this->decorator->read(10);
+        $this->assertEquals('16B_DECRYP', $result1);
+        
+        $result2 = $this->decorator->read(6);
+        $this->assertEquals('TED_D', $result2);
+        
+        $result3 = $this->decorator->read(1024);
+        $this->assertEquals('_VERIFIED', $result3);
+        
+        $this->assertTrue($this->decorator->eof());
     }
 
     public function testGetContentsWithEof()
@@ -302,13 +304,10 @@ class DecryptedStreamDecoratorTest extends TestCase
 
     public function testCalculateReadSize()
     {
-        // Минимальный размер - blockSize (16)
         $this->assertSame(16, $this->invokePrivateMethod($this->decorator, 'calculateReadSize', [8]));
         
-        // Запрошенный размер в пределах blockSize и chunkSize
         $this->assertSame(32, $this->invokePrivateMethod($this->decorator, 'calculateReadSize', [32]));
         
-        // Максимальный размер - chunkSize (65536)
         $this->assertSame(65536, $this->invokePrivateMethod($this->decorator, 'calculateReadSize', [100000]));
     }
 
@@ -326,29 +325,5 @@ class DecryptedStreamDecoratorTest extends TestCase
     public function testGetFinalOffsetSize()
     {
         $this->assertSame(26, $this->invokePrivateMethod($this->decorator, 'getFinalOffsetSize'));
-    }
-
-    private function getPrivateProperty(object $object, string $property)
-    {
-        $reflection = new \ReflectionClass($object);
-        $property = $reflection->getProperty($property);
-        $property->setAccessible(true);
-        return $property->getValue($object);
-    }
-
-    private function setPrivateProperty(object $object, string $property, $value): void
-    {
-        $reflection = new \ReflectionClass($object);
-        $property = $reflection->getProperty($property);
-        $property->setAccessible(true);
-        $property->setValue($object, $value);
-    }
-
-    private function invokePrivateMethod(object $object, string $method, array $args = [])
-    {
-        $reflection = new \ReflectionClass($object);
-        $method = $reflection->getMethod($method);
-        $method->setAccessible(true);
-        return $method->invokeArgs($object, $args);
     }
 }
