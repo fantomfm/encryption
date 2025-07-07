@@ -12,6 +12,8 @@ use InvalidArgumentException;
 
 class DecryptedStreamDecorator implements StreamInterface
 {
+    use StreamDecoratorTrait;
+
     private string $buffer = '';
     private bool $finalized = false;
     private int $position = 0;
@@ -37,77 +39,6 @@ class DecryptedStreamDecorator implements StreamInterface
         }
     }
 
-    public function __toString(): string
-    {
-        try {
-            return $this->getContents();
-        } catch (\Throwable $e) {
-            return '';
-        }
-    }
-
-    public function close(): void
-    {
-        $this->finalize();
-        $this->stream->close();
-        $this->buffer = '';
-        $this->sourceEof = true;
-    }
-
-    public function detach()
-    {
-        $this->finalize();
-        $this->buffer = '';
-        $this->sourceEof = true;
-        
-        return $this->stream->detach();
-    }
-
-    public function getSize(): ?int
-    {
-        return null;
-    }
-
-    public function tell(): int
-    {
-        return $this->position;
-    }
-
-    public function eof(): bool
-    {
-        return $this->sourceEof && empty($this->buffer);
-    }
-
-    public function isSeekable(): bool
-    {
-        return false;
-    }
-
-    public function seek(int $offset, int $whence = SEEK_SET): void
-    {
-        throw new StreamException('Decrypted stream does not support seeking');
-    }
-
-    public function rewind(): void
-    {
-        throw new StreamException('Decrypted stream does not support seeking');
-    }
-
-    public function isWritable(): bool
-    {
-        return false;
-    }
-
-    public function write(string $string): int
-    {
-        throw new StreamException('Cannot write to an decrypted read-only stream');
-    }
-
-    public function isReadable(): bool
-    {
-        return true;
-    }
-
     public function read(int $length): string
     {
         if ($this->eof()) {
@@ -128,7 +59,7 @@ class DecryptedStreamDecorator implements StreamInterface
                 $this->buffer .= $this->finalize();
                 break;
             }
-            
+
             if ($this->stream->eof()) {
                 $this->sourceEof = true;
                 $this->buffer .= $this->getDecryptedFinal($chunk);
@@ -166,11 +97,6 @@ class DecryptedStreamDecorator implements StreamInterface
         return $result;
     }
 
-    public function getMetadata(?string $key = null)
-    {
-        return $this->stream->getMetadata($key);
-    }
-
     private function calculateReadSize(int $requested): int
     {
         return min(
@@ -197,7 +123,7 @@ class DecryptedStreamDecorator implements StreamInterface
     {
         $offset = $this->getFinalOffsetSize();
         $chunkLength = mb_strlen($finalChunk, '8bit');
-    
+
         if ($chunkLength < $offset) {
             try {
                 return $this->finalize($finalChunk);
@@ -208,7 +134,7 @@ class DecryptedStreamDecorator implements StreamInterface
 
         $encrypted = substr($finalChunk, 0, -$offset);
         $encryptedFinal = substr($finalChunk, -$offset);
-        
+
         return $this->decryptor->update($encrypted) . $this->finalize($encryptedFinal);
     }
 

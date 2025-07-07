@@ -27,7 +27,7 @@ class EncryptedStreamDecoratorTest extends TestCase
     {
         $this->stream = $this->createMock(StreamInterface::class);
         $this->stream->method('isReadable')->willReturn(true);
-        
+
         $this->encryptor = $this->createMock(MediaCipherInterface::class);
         $this->encryptor->method('getBlockSize')->willReturn(16);
         $this->encryptor->method('update')->willReturnArgument(0);
@@ -49,10 +49,10 @@ class EncryptedStreamDecoratorTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Stream must be readable');
-        
+
         $stream = $this->createMock(StreamInterface::class);
         $stream->method('isReadable')->willReturn(false);
-        
+
         new EncryptedStreamDecorator($stream, $this->encryptor);
     }
 
@@ -60,7 +60,7 @@ class EncryptedStreamDecoratorTest extends TestCase
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Chunk size must be at least 16 bytes');
-        
+
         new EncryptedStreamDecorator($this->stream, $this->encryptor, 8);
     }
 
@@ -106,9 +106,9 @@ class EncryptedStreamDecoratorTest extends TestCase
     {
         $this->stream->expects($this->once())->method('close');
         $this->encryptor->expects($this->once())->method('finish');
-        
+
         $this->decorator->close();
-        
+
         $this->assertTrue($this->decorator->eof());
         $this->assertSame('', $this->getPrivateProperty($this->decorator, 'buffer'));
     }
@@ -126,11 +126,11 @@ class EncryptedStreamDecoratorTest extends TestCase
     {
         $resource = fopen('php://memory', 'r');
         $this->stream->method('detach')->willReturn($resource);
-        
+
         $this->encryptor->expects($this->once())->method('finish');
-        
+
         $result = $this->decorator->detach();
-        
+
         $this->assertSame($resource, $result);
         $this->assertTrue($this->decorator->eof());
         $this->assertSame('', $this->getPrivateProperty($this->decorator, 'buffer'));
@@ -144,7 +144,7 @@ class EncryptedStreamDecoratorTest extends TestCase
     public function testTell()
     {
         $this->assertSame(0, $this->decorator->tell());
-        
+
         $this->setPrivateProperty($this->decorator, 'position', 42);
         $this->assertSame(42, $this->decorator->tell());
     }
@@ -204,10 +204,10 @@ class EncryptedStreamDecoratorTest extends TestCase
     public function testEof()
     {
         $this->assertFalse($this->decorator->eof());
-        
+
         $this->setPrivateProperty($this->decorator, 'sourceEof', true);
         $this->assertTrue($this->decorator->eof());
-        
+
         $this->setPrivateProperty($this->decorator, 'buffer', 'data');
         $this->assertFalse($this->decorator->eof());
     }
@@ -220,16 +220,16 @@ class EncryptedStreamDecoratorTest extends TestCase
     public function testSeekThrowsException()
     {
         $this->expectException(StreamException::class);
-        $this->expectExceptionMessage('Encrypted stream does not support seeking');
-        
+        $this->expectExceptionMessage('Stream does not support seeking');
+
         $this->decorator->seek(0);
     }
 
     public function testRewindThrowsException()
     {
         $this->expectException(StreamException::class);
-        $this->expectExceptionMessage('Encrypted stream does not support seeking');
-        
+        $this->expectExceptionMessage('Stream does not support seeking');
+
         $this->decorator->rewind();
     }
 
@@ -241,8 +241,8 @@ class EncryptedStreamDecoratorTest extends TestCase
     public function testWriteThrowsException()
     {
         $this->expectException(StreamException::class);
-        $this->expectExceptionMessage('Cannot write to an encrypted read-only stream');
-        
+        $this->expectExceptionMessage('Cannot write to read-only stream');
+
         $this->decorator->write('data');
     }
 

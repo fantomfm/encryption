@@ -12,11 +12,12 @@ use InvalidArgumentException;
 
 class EncryptedStreamDecorator implements StreamInterface
 {
+    use StreamDecoratorTrait;
+
     private string $buffer = '';
     private bool $finalized = false;
     private int $position = 0;
     private bool $sourceEof = false;
-
     private int $blockSize;
 
     public function __construct(
@@ -37,77 +38,6 @@ class EncryptedStreamDecorator implements StreamInterface
                 $this->blockSize
             ));
         }
-    }
-
-    public function __toString(): string
-    {
-        try {
-            return $this->getContents();
-        } catch (\Throwable $e) {
-            return '';
-        }
-    }
-
-    public function close(): void
-    {
-        $this->finalize();
-        $this->stream->close();
-        $this->buffer = '';
-        $this->sourceEof = true;
-    }
-
-    public function detach()
-    {
-        $this->finalize();
-        $this->buffer = '';
-        $this->sourceEof = true;
-
-        return $this->stream->detach();
-    }
-
-    public function getSize(): ?int
-    {
-        return null;
-    }
-
-    public function tell(): int
-    {
-        return $this->position;
-    }
-
-    public function eof(): bool
-    {
-        return $this->sourceEof && empty($this->buffer);
-    }
-
-    public function isSeekable(): bool
-    {
-        return false;
-    }
-
-    public function seek(int $offset, int $whence = SEEK_SET): void
-    {
-        throw new StreamException('Encrypted stream does not support seeking');
-    }
-
-    public function rewind(): void
-    {
-        throw new StreamException('Encrypted stream does not support seeking');
-    }
-
-    public function isWritable(): bool
-    {
-        return false;
-    }
-
-    public function write(string $string): int
-    {
-        throw new StreamException('Cannot write to an encrypted read-only stream');
-    }
-
-    public function isReadable(): bool
-    {
-        return true;
     }
 
     public function read(int $length): string
@@ -163,11 +93,6 @@ class EncryptedStreamDecorator implements StreamInterface
         }
 
         return $result;
-    }
-
-    public function getMetadata(?string $key = null)
-    {
-        return $this->stream->getMetadata($key);
     }
 
     public function getSidecar(): string
