@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Encryption\Stream;
 
+use Encryption\Exception\DecryptionException;
 use Encryption\Exception\StreamException;
 use Encryption\Interface\MediaCipherInterface;
-use Encryption\Interface\MediaStreamInfoGeneratorInterface;
 use Psr\Http\Message\StreamInterface;
 use InvalidArgumentException;
 
-class EncryptedStreamDecorator implements StreamInterface
+class DecryptedStreamDecorator implements StreamInterface
 {
     use StreamDecoratorTrait;
 
@@ -22,15 +22,14 @@ class EncryptedStreamDecorator implements StreamInterface
 
     public function __construct(
         private StreamInterface $stream,
-        private MediaCipherInterface $encryptor,
-        private int $chunkSize = 65536,
-        private ?MediaStreamInfoGeneratorInterface $sidecar = null
+        private MediaCipherInterface $decryptor,
+        private int $chunkSize = 65536
     ) {
         if (!$stream->isReadable()) {
             throw new InvalidArgumentException('Stream must be readable');
         }
 
-        $this->blockSize = $this->encryptor->getBlockSize();
+        $this->blockSize = $this->decryptor->getBlockSize();
 
         if ($chunkSize < $this->blockSize) {
             throw new InvalidArgumentException(sprintf(
@@ -52,17 +51,21 @@ class EncryptedStreamDecorator implements StreamInterface
             return $this->extractFromBuffer($length);
         }
 
-        while (mb_strlen($this->buffer, '8bit') < $length && !$this->sourceEof) {
+        while (mb_strlen($this->buffer, '8bit') < $length && !$this->stream->eof()) {
             $chunk = $this->stream->read($readSize);
 
             if (empty($chunk)) {
                 $this->sourceEof = true;
-                $encrypted = $this->finalize();
-                $this->buffer .= $encrypted;
+                $this->buffer .= $this->finalize();
                 break;
             }
 
-            $this->buffer .= $this->update($chunk);
+            if ($this->stream->eof()) {
+                $this->sourceEof = true;
+                $this->buffer .= $this->getDecryptedFinal($chunk);
+            } else {
+                $this->buffer .= $this->decryptor->update($chunk);
+            }
         }
 
         return $this->extractFromBuffer($length);
@@ -79,10 +82,9 @@ class EncryptedStreamDecorator implements StreamInterface
 
         if ($this->stream->getSize() !== null && $this->stream->getSize() <= $this->chunkSize) {
             $data = $this->stream->getContents();
-            $result = $this->update($data) . $this->finalize();
+            $result = $this->getDecryptedFinal($data);
 
             $this->position += mb_strlen($result, '8bit');
-
             $this->sourceEof = true;
 
             return $result;
@@ -93,39 +95,6 @@ class EncryptedStreamDecorator implements StreamInterface
         }
 
         return $result;
-    }
-
-    public function getSidecar(): string
-    {
-        if (!$this->sidecar) {
-            throw new StreamException('Sidecar generation was not enabled');
-        }
-
-        return $this->sidecar->getSidecar();
-    }
-
-    private function update($data): string
-    {
-        $encrypted = $this->encryptor->update($data);
-        $this->sidecar?->update($encrypted);
-
-        return $encrypted;
-    }
-
-    private function finalize(): string
-    {
-        if ($this->finalized) {
-            return '';
-        }
-
-        $this->finalized = true;
-
-        $finalizedData = $this->encryptor->finish();
-
-        $this->sidecar?->update($finalizedData);
-        $this->sidecar?->finish();
-
-        return $finalizedData;
     }
 
     private function calculateReadSize(int $requested): int
@@ -148,5 +117,40 @@ class EncryptedStreamDecorator implements StreamInterface
         $this->position += mb_strlen($result, '8bit');
 
         return $result;
+    }
+
+    private function getDecryptedFinal(string $finalChunk): string
+    {
+        $offset = $this->getFinalOffsetSize();
+        $chunkLength = mb_strlen($finalChunk, '8bit');
+
+        if ($chunkLength < $offset) {
+            try {
+                return $this->finalize($finalChunk);
+            } catch (DecryptionException $e) {
+                throw new StreamException('Final chunk is too small for decryption');
+            }
+        }
+
+        $encrypted = substr($finalChunk, 0, -$offset);
+        $encryptedFinal = substr($finalChunk, -$offset);
+
+        return $this->decryptor->update($encrypted) . $this->finalize($encryptedFinal);
+    }
+
+    private function getFinalOffsetSize(): int
+    {
+        return $this->decryptor->getBlockSize() + $this->decryptor->getMacSize();
+    }
+
+    private function finalize(string $chunk = ''): string
+    {
+        if ($this->finalized) {
+            return '';
+        }
+
+        $this->finalized = true;
+
+        return $this->decryptor->finish($chunk);
     }
 }

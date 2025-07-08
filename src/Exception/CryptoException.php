@@ -2,9 +2,7 @@
 
 namespace Encryption\Exception;
 
-use RuntimeException;
-
-class CryptoException extends RuntimeException
+class CryptoException extends \RuntimeException
 {
     public static function createFromOpenSSLError(): self
     {

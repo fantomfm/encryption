@@ -14,7 +14,11 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
     public function update(string $chunk): string
     {
         if ($this->finalized) {
-            throw new DecryptionException('Decryption already finalized');
+            throw new DecryptionException("Decryption already finalized");
+        }
+
+        if (mb_strlen($this->buffer, '8bit') > 65536) {
+            throw new DecryptionException("Buffer size exceeded maximum limit");
         }
 
         $this->buffer .= $chunk;
@@ -29,75 +33,52 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
         $toDecrypt = substr($this->buffer, 0, $blocks * self::BLOCK_SIZE);
         $this->buffer = substr($this->buffer, $blocks * self::BLOCK_SIZE);
 
-        hash_update($this->hmacContext, $toDecrypt);
-
-        $decrypted = $this->decrypt($toDecrypt);
-
-        $this->currentIv = substr($toDecrypt, -self::BLOCK_SIZE);
-
-        return $decrypted;
+        return $this->decryptChunk($toDecrypt);
     }
 
     public function finish(string $chunk = ''): string
     {
         if ($this->finalized) {
-            throw new DecryptionException('Decryption already finalized');
+            return '';
         }
 
-        $this->buffer .= $chunk;
+        $data = $this->buffer . $chunk;
+        $this->buffer = '';
+
+        if (mb_strlen($data, '8bit') < self::BLOCK_SIZE + self::MAC_SIZE) {
+            throw new DecryptionException("Final chunk is too small to contain encrypted data and MAC");
+        }
+
+        $encryptedData = substr($data, 0, -self::MAC_SIZE);
+        $receivedMac = substr($data, -self::MAC_SIZE);
+
+        $decrypted = $this->decryptChunk($encryptedData);
         $this->finalized = true;
 
-        if (mb_strlen($this->buffer, '8bit') < self::MAC_SIZE) {
-            throw new InvalidMacException('Not enough data to extract MAC');
+        $calculatedMac = substr(hash_final($this->hmacContext, true), 0, self::MAC_SIZE);
+        $this->hmacContext = null;
+
+        if (!hash_equals($calculatedMac, $receivedMac)) {
+            throw new InvalidMacException("MAC verification failed");
         }
-
-        $macOffset = mb_strlen($this->buffer, '8bit') - self::MAC_SIZE;
-        $encryptedData = substr($this->buffer, 0, $macOffset);
-        $receivedMac = substr($this->buffer, $macOffset);
-
-        hash_update($this->hmacContext, $encryptedData);
-        $expectedMac = substr(hash_final($this->hmacContext, true), 0, self::MAC_SIZE);
-
-        if (!hash_equals($expectedMac, $receivedMac)) {
-            throw new InvalidMacException('HMAC verification failed');
-        }
-
-        $decrypted = $this->decrypt($encryptedData);
 
         return $this->removePadding($decrypted);
     }
 
-    private function removePadding(string $data): string
+    private function decryptChunk(string $chunk): string
     {
-        $len = mb_strlen($data, '8bit');
-
-        if ($len === 0 || $len % self::BLOCK_SIZE !== 0) {
-            throw new DecryptionException('Invalid data length or padding');
+        if ($chunk === '') {
+            return '';
         }
 
-        $padLength = ord($data[$len - 1]);
+        $len = mb_strlen($chunk, '8bit');
 
-        if ($padLength <= 0 || $padLength > self::BLOCK_SIZE) {
-            throw new DecryptionException('Invalid padding');
-        }
-
-        $padding = substr($data, -$padLength);
-        if ($padding !== str_repeat(chr($padLength), $padLength)) {
-            throw new DecryptionException('Invalid padding bytes');
-        }
-
-        return substr($data, 0, $len - $padLength);
-    }
-
-    private function decrypt(string $encryptedData): string
-    {
-        $len = mb_strlen($encryptedData, '8bit');
         if ($len % self::BLOCK_SIZE !== 0) {
-            throw new DecryptionException("Encrypted data length must be multiple of block size");
+            throw new DecryptionException("Data length must be multiple of block size");
         }
 
         $decrypted = openssl_decrypt(
-            $encryptedData,
+            $chunk,
             'AES-256-CBC',
             $this->cipherKey,
             OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING,
@@ -108,6 +89,32 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
             throw DecryptionException::createFromOpenSSLError();
         }
 
+        hash_update($this->hmacContext, $chunk);
+
+        $this->currentIv = substr($chunk, -self::BLOCK_SIZE);
+
         return $decrypted;
+    }
+
+    private function removePadding(string $data): string
+    {
+        $len = mb_strlen($data, '8bit');
+        if ($len === 0) {
+            return '';
+        }
+
+        $padLength = ord($data[$len - 1]);
+        if ($padLength > self::BLOCK_SIZE || $padLength <= 0) {
+            throw new DecryptionException("Invalid padding");
+        }
+
+        // Verify padding bytes
+        for ($i = 1; $i <= $padLength; $i++) {
+            if (ord($data[$len - $i]) !== $padLength) {
+                throw new DecryptionException("Invalid padding");
+            }
+        }
+
+        return substr($data, 0, -$padLength);
     }
 }

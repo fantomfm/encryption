@@ -1,6 +1,6 @@
 <?php
 
-namespace EncryptionTest;
+namespace EncryptionTest\WhatsApp;
 
 use Encryption\Enum\MediaType;
 use Encryption\Exception\EncryptionException;
