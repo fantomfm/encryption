@@ -1,4 +1,4 @@
-# WhatsApp Media Encryption Library
+# Media Encryption Library
 
 [![PHP Version](https://img.shields.io/badge/php-8.1%2B-blue.svg)](https://php.net/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
