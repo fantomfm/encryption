@@ -3,7 +3,7 @@
 [![PHP Version](https://img.shields.io/badge/php-8.1%2B-blue.svg)](https://php.net/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-PHP library for stream encryption/decryption of media files with support for PSR-7 stream, including WhatsApp.
+PHP library for stream encryption/decryption of media files with support for PSR-7 stream including WhatsApp.
 
 ## 🚀 Features
 
@@ -17,6 +17,7 @@ PHP library for stream encryption/decryption of media files with support for PSR
 
 ```bash
 composer install
+#composer require your-package/encryption
 ```
 
 ## 💻 Basic Usage
