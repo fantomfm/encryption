@@ -31,5 +31,8 @@
         "psr-4": {
             "EncryptionTest\\": "tests/"
         }
+    },
+    "scripts": {
+        "test": "phpunit"
     }
 }
