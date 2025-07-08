@@ -7,7 +7,6 @@ namespace EncryptionTest\WhatsApp;
 use Encryption\Exception\StreamInfoException;
 use Encryption\Interface\MediaStreamInfoGeneratorInterface;
 use Encryption\WhatsApp\WhatsAppMediaStreamInfoGenerator;
-use Encryption\Exception\EncryptionException;
 use PHPUnit\Framework\TestCase;
 
 class WhatsAppMediaStreamInfoGeneratorTest extends TestCase

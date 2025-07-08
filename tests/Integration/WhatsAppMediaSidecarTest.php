@@ -8,11 +8,9 @@ use Encryption\Enum\MediaType;
 use Encryption\Stream\EncryptedStreamDecorator;
 use Encryption\WhatsApp\WhatsAppMediaEncryptor;
 use Encryption\WhatsApp\WhatsAppMediaStreamInfoGenerator;
-use Error;
 use GuzzleHttp\Psr7\Stream;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\StreamInterface;
-use SebastianBergmann\CodeCoverage\Report\PHP;
 
 class WhatsAppMediaSidecarTest extends TestCase
 {
