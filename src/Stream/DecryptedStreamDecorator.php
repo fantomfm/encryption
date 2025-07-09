@@ -125,11 +125,11 @@ class DecryptedStreamDecorator implements StreamInterface
         $chunkLength = mb_strlen($finalChunk, '8bit');
 
         if ($chunkLength < $offset) {
-            try {
+//            try {
                 return $this->finalize($finalChunk);
-            } catch (DecryptionException $e) {
-                throw new StreamException('Final chunk is too small for decryption');
-            }
+//            } catch (DecryptionException $e) {
+//                throw new StreamException('Final chunk is too small for decryption');
+//            }
         }
 
         $encrypted = substr($finalChunk, 0, -$offset);

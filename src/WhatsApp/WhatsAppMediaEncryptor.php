@@ -32,7 +32,7 @@ class WhatsAppMediaEncryptor extends WhatsAppMediaCipher
         $toEncrypt = substr($this->buffer, 0, $blocks * self::BLOCK_SIZE);
         $this->buffer = substr($this->buffer, $blocks * self::BLOCK_SIZE);
 
-        return $this->encryptChunk($toEncrypt);
+        return $this->encryptChunk($toEncrypt, OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING);
     }
 
     public function finish(string $chunk = ''): string
@@ -44,9 +44,7 @@ class WhatsAppMediaEncryptor extends WhatsAppMediaCipher
         $data = $this->buffer . $chunk;
         $this->buffer = '';
 
-        $padded = $this->addPadding($data);
-
-        $encrypted = $this->encryptChunk($padded);
+        $encrypted = $this->encryptChunk($data, OPENSSL_RAW_DATA);
         $this->finalized = true;
 
         $mac = substr(hash_final($this->hmacContext, true), 0, self::MAC_SIZE);
@@ -60,23 +58,17 @@ class WhatsAppMediaEncryptor extends WhatsAppMediaCipher
         return $this->macKey;
     }
 
-    private function encryptChunk(string $chunk): string
+    private function encryptChunk(string $chunk, int $options): string
     {
         if ($chunk === '') {
             return '';
-        }
-
-        $len = mb_strlen($chunk, '8bit');
-
-        if ($len % self::BLOCK_SIZE !== 0) {
-            throw new EncryptionException("Data length must be multiple of block size");
         }
 
         $encrypted = openssl_encrypt(
             $chunk,
             'AES-256-CBC',
             $this->cipherKey,
-            OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING,
+            $options,
             $this->currentIv
         );
 
@@ -89,12 +81,5 @@ class WhatsAppMediaEncryptor extends WhatsAppMediaCipher
         $this->currentIv = substr($encrypted, -self::BLOCK_SIZE);
 
         return $encrypted;
-    }
-
-    private function addPadding(string $data): string
-    {
-        $padLength = self::BLOCK_SIZE - (mb_strlen($data, '8bit') % self::BLOCK_SIZE);
-
-        return $data . str_repeat(chr($padLength), $padLength);
     }
 }

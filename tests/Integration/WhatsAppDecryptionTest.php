@@ -74,8 +74,11 @@ class WhatsAppDecryptionTest extends TestCase
 
         $chunkedDecrypted = '';
         while (!$chunkedDecryptedStream->eof()) {
-            $chunkedDecrypted .= $chunkedDecryptedStream->read(16384);
+            $chunkedDecrypted .= $chunkedDecryptedStream->read(100);
         }
+
+        error_log('original: ' . bin2hex($original) . PHP_EOL);
+        error_log('original: ' . bin2hex($chunkedDecrypted) . PHP_EOL);
 
         $this->assertSame($original, $chunkedDecrypted);
     }

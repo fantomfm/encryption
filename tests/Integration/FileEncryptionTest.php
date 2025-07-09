@@ -15,7 +15,6 @@ class FileEncryptionTest extends TestCase
     private const ORIGINAL_FILE = __DIR__ . '/files/VIDEO.original';
     private const ENCRYPTED_FILE = __DIR__ . '/files/VIDEO.encrypted';
     private const KEY_FILE = __DIR__ . '/files/VIDEO.key';
-    private const SIDECAR_FILE = __DIR__ . '/files/VIDEO.sidecar';
 
     private const MEDIA_TYPE = MediaType::VIDEO;
 
@@ -33,6 +32,9 @@ class FileEncryptionTest extends TestCase
 
         $this->assertNotEmpty($actualEncryptedContent);
         $this->assertNotEquals($originalContent, $actualEncryptedContent);
+
+
+
         $this->assertSame($expectedEncryptedContent, $actualEncryptedContent);
     }
 

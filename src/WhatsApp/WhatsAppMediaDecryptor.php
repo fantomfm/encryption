@@ -45,9 +45,9 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
         $data = $this->buffer . $chunk;
         $this->buffer = '';
 
-        if (mb_strlen($data, '8bit') < self::BLOCK_SIZE + self::MAC_SIZE) {
-            throw new DecryptionException("Final chunk is too small to contain encrypted data and MAC");
-        }
+//        if (mb_strlen($data, '8bit') < self::BLOCK_SIZE + self::MAC_SIZE) {
+//            throw new DecryptionException("Final chunk is too small to contain encrypted data and MAC");
+//        }
 
         $encryptedData = substr($data, 0, -self::MAC_SIZE);
         $receivedMac = substr($data, -self::MAC_SIZE);
@@ -81,7 +81,7 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
             $chunk,
             'AES-256-CBC',
             $this->cipherKey,
-            OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING,
+            OPENSSL_RAW_DATA,
             $this->currentIv
         );
 
