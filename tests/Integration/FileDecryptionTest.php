@@ -35,6 +35,25 @@ class FileDecryptionTest extends TestCase
         $this->assertSame($expectedOriginalContent, $actualDecryptedContent);
     }
 
+    public function testFileDecryptionInChunks(): void
+    {
+        $expectedOriginalContent = file_get_contents(self::ORIGINAL_FILE);
+        $encryptedContent = file_get_contents(self::ENCRYPTED_FILE);
+        $mediaKey = trim(file_get_contents(self::KEY_FILE));
+
+        $stream = $this->createStreamFromString($encryptedContent);
+        $decryptor = new WhatsAppMediaDecryptor($mediaKey, self::MEDIA_TYPE);
+        $stream = new DecryptedStreamDecorator($stream, $decryptor);
+
+        $actualDecryptedContent = '';
+        while (!$stream->eof()) {
+            $chunk = $stream->read(10);
+            $actualDecryptedContent .= $chunk;
+        }
+
+        $this->assertSame($expectedOriginalContent, $actualDecryptedContent);
+    }
+
     private function createStreamFromString(string $content): Stream
     {
         $stream = fopen('php://memory', 'r+');

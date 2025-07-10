@@ -45,7 +45,7 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
         $data = $this->buffer . $chunk;
         $this->buffer = '';
 
-        if (mb_strlen($data, '8bit') < self::BLOCK_SIZE + self::MAC_SIZE) {
+        if (mb_strlen($data, '8bit') < self::MAC_SIZE) {
             throw new DecryptionException("Final chunk is too small to contain encrypted data and MAC");
         }
 
@@ -108,7 +108,6 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
             throw new DecryptionException("Invalid padding");
         }
 
-        // Verify padding bytes
         for ($i = 1; $i <= $padLength; $i++) {
             if (ord($data[$len - $i]) !== $padLength) {
                 throw new DecryptionException("Invalid padding");
