@@ -167,7 +167,7 @@ class DecryptedStreamDecoratorTest extends TestCase
         $finalChunk = $encryptedData . $mac;
 
         $this->stream->method('eof')->willReturn(false, true);
-        $this->stream->method('read')->willReturn($finalChunk);
+        $this->stream->method('read')->willReturn($finalChunk, '');
         $this->decryptor->method('update')->willReturn('_more_data');
         $this->decryptor->method('finish')->willReturn('_final');
 
@@ -314,10 +314,5 @@ class DecryptedStreamDecoratorTest extends TestCase
         $this->assertSame('test', $result);
         $this->assertSame(' data', $this->getPrivateProperty($this->decorator, 'buffer'));
         $this->assertSame(4, $this->decorator->tell());
-    }
-
-    public function testGetFinalOffsetSize()
-    {
-        $this->assertSame(26, $this->invokePrivateMethod($this->decorator, 'getFinalOffsetSize'));
     }
 }

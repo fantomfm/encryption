@@ -52,18 +52,18 @@ class DecryptedStreamDecorator implements StreamInterface
         while (mb_strlen($this->buffer, '8bit') < $length && !$this->sourceEof) {
             $chunk = $this->stream->read($this->chunkSize);
 
-            if ($chunk === '' || $this->stream->eof()) {
-                $this->sourceEof = true;
-                $this->buffer .= $this->getDecryptedFinal($chunk);
+            if ($chunk === '') {
+                if ($this->stream->eof()) {
+                    $this->handleFinalChunk($chunk);
+                }
                 break;
             }
 
-//            if ($this->stream->eof()) {
-//                $this->sourceEof = true;
-//                $this->buffer .= $this->getDecryptedFinal($chunk);
-//            } else {
+            if ($this->stream->eof()) {
+                $this->handleFinalChunk($chunk);
+            } else {
                 $this->buffer .= $this->decryptor->update($chunk);
-//            }
+            }
         }
 
         return $this->extractFromBuffer($length);
@@ -130,9 +130,10 @@ class DecryptedStreamDecorator implements StreamInterface
 //        return $this->decryptor->update($encrypted) . $this->finalize($encryptedFinal);
     }
 
-    private function getFinalOffsetSize(): int
+    private function handleFinalChunk(string $chunk): void
     {
-        return $this->decryptor->getBlockSize() + $this->decryptor->getMacSize();
+        $this->sourceEof = true;
+        $this->buffer .= $this->getDecryptedFinal($chunk);
     }
 
     private function finalize(string $chunk = ''): string
