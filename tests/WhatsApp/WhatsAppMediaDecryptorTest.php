@@ -8,7 +8,6 @@ use Encryption\Exception\InvalidMacException;
 use Encryption\WhatsApp\WhatsAppMediaDecryptor;
 use Encryption\WhatsApp\WhatsAppMediaEncryptor;
 use PHPUnit\Framework\TestCase;
-use ReflectionMethod;
 
 final class WhatsAppMediaDecryptorTest extends TestCase
 {
@@ -230,23 +229,6 @@ final class WhatsAppMediaDecryptorTest extends TestCase
         $this->expectExceptionMessage('Final chunk is too small to contain encrypted data and MAC');
 
         $decryptor->finish(substr($mac, 0, 5));
-    }
-
-    public function testRemovePaddingReturnsEmptyStringWhenGivenFullPaddingBlock(): void
-    {
-        $mediaKey = random_bytes(32);
-        $mediaType = MediaType::DOCUMENT;
-
-        $decryptor = new WhatsAppMediaDecryptor($mediaKey, $mediaType);
-
-        $blockWithPadding = str_repeat("\x10", 16);
-
-        $method = new ReflectionMethod(WhatsAppMediaDecryptor::class, 'removePadding');
-        $method->setAccessible(true);
-
-        $decryptedBlock = $method->invoke($decryptor, $blockWithPadding);
-
-        $this->assertEquals('', $decryptedBlock);
     }
 
     public function testDecryptionAfterFinalize(): void

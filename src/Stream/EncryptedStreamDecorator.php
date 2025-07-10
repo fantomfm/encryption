@@ -55,10 +55,9 @@ class EncryptedStreamDecorator implements StreamInterface
         while (mb_strlen($this->buffer, '8bit') < $length && !$this->sourceEof) {
             $chunk = $this->stream->read($readSize);
 
-            if (empty($chunk)) {
+            if ($chunk === '') {
                 $this->sourceEof = true;
-                $encrypted = $this->finalize();
-                $this->buffer .= $encrypted;
+                $this->buffer .= $this->finalize();
                 break;
             }
 

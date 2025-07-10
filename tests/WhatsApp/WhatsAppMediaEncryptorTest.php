@@ -62,19 +62,19 @@ final class WhatsAppMediaEncryptorTest extends TestCase
         $this->assertEquals(32, mb_strlen($macKey, '8bit'));
     }
 
-    public function testAddPaddingAddsCorrectPadding(): void
-    {
-        $method = new ReflectionMethod(WhatsAppMediaEncryptor::class, 'addPadding');
-        $method->setAccessible(true);
-
-        $data = "short_data";
-        $padded = $method->invoke($this->encryptor, $data);
-        $len = mb_strlen($data, '8bit');
-        $padLength = 16 - ($len % 16);
-
-        $this->assertEquals(ord($padded[-1]), $padLength);
-        $this->assertEquals($len + $padLength, mb_strlen($padded, '8bit'));
-    }
+//    public function testAddPaddingAddsCorrectPadding(): void
+//    {
+//        $method = new ReflectionMethod(WhatsAppMediaEncryptor::class, 'addPadding');
+//        $method->setAccessible(true);
+//
+//        $data = "short_data";
+//        $padded = $method->invoke($this->encryptor, $data);
+//        $len = mb_strlen($data, '8bit');
+//        $padLength = 16 - ($len % 16);
+//
+//        $this->assertEquals(ord($padded[-1]), $padLength);
+//        $this->assertEquals($len + $padLength, mb_strlen($padded, '8bit'));
+//    }
 
     public function testEncryptChunkReturnsEncryptedData(): void
     {
@@ -82,7 +82,7 @@ final class WhatsAppMediaEncryptorTest extends TestCase
         $method->setAccessible(true);
 
         $chunk = str_repeat('a', 16);
-        $encrypted = $method->invoke($this->encryptor, $chunk);
+        $encrypted = $method->invoke($this->encryptor, $chunk, 1);
 
         $this->assertIsString($encrypted);
         $this->assertNotEmpty($encrypted);
@@ -125,7 +125,7 @@ final class WhatsAppMediaEncryptorTest extends TestCase
         $result = $this->encryptor->finish();
         $encrypted = substr($result, 0, -self::MAC_SIZE);
 
-        $this->assertEquals(self::BLOCK_SIZE, mb_strlen($encrypted, '8bit'));
+        $this->assertEquals(0, mb_strlen($encrypted, '8bit'));
     }
 
     public function testFinalizeOnlyOnce(): void

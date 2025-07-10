@@ -56,7 +56,7 @@ class WhatsAppMediaStreamInfoGenerator implements MediaStreamInfoGeneratorInterf
         }
 
         $remainingData = $this->buffer . $chunk;
-        if (!empty($remainingData)) {
+        if ($remainingData !== '') {
             $this->processChunk($remainingData);
         }
 

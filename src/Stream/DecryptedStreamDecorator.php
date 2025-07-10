@@ -80,6 +80,7 @@ class DecryptedStreamDecorator implements StreamInterface
 
         if ($this->stream->getSize() !== null && $this->stream->getSize() <= $this->chunkSize) {
             $data = $this->stream->getContents();
+
             $result = $this->getDecryptedFinal($data);
 
             $this->position += mb_strlen($result, '8bit');
@@ -113,21 +114,11 @@ class DecryptedStreamDecorator implements StreamInterface
 
     private function getDecryptedFinal(string $finalChunk): string
     {
-//        $offset = $this->getFinalOffsetSize();
-//        $chunkLength = mb_strlen($finalChunk, '8bit');
-//
-//        if ($chunkLength < $offset) {
-            try {
-                return $this->finalize($finalChunk);
-            } catch (DecryptionException $e) {
-                throw new StreamException('Failed to decrypt final chunk: ' . $e->getMessage());
-            }
-//        }
-//
-//        $encrypted = substr($finalChunk, 0, -$offset);
-//        $encryptedFinal = substr($finalChunk, -$offset);
-//
-//        return $this->decryptor->update($encrypted) . $this->finalize($encryptedFinal);
+        try {
+            return $this->finalize($finalChunk);
+        } catch (DecryptionException $e) {
+            throw new StreamException('Failed to decrypt final chunk: ' . $e->getMessage());
+        }
     }
 
     private function handleFinalChunk(string $chunk): void

@@ -33,7 +33,7 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
         $toDecrypt = substr($this->buffer, 0, $blocks * self::BLOCK_SIZE);
         $this->buffer = substr($this->buffer, $blocks * self::BLOCK_SIZE);
 
-        return $this->decryptChunk($toDecrypt);
+        return $this->decryptChunk($toDecrypt, OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING);
     }
 
     public function finish(string $chunk = ''): string
@@ -52,7 +52,11 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
         $encryptedData = substr($data, 0, -self::MAC_SIZE);
         $receivedMac = substr($data, -self::MAC_SIZE);
 
-        $decrypted = $this->decryptChunk($encryptedData);
+        $options = (mb_strlen($encryptedData, '8bit') % self::BLOCK_SIZE === 0)
+            ? OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING
+            : OPENSSL_RAW_DATA;
+
+        $decrypted = $this->decryptChunk($encryptedData, $options);
         $this->finalized = true;
 
         $calculatedMac = substr(hash_final($this->hmacContext, true), 0, self::MAC_SIZE);
@@ -62,10 +66,10 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
             throw new InvalidMacException("MAC verification failed");
         }
 
-        return $this->removePadding($decrypted);
+        return rtrim($decrypted, "\x00..\x1F");//$this->removePadding($decrypted);
     }
 
-    private function decryptChunk(string $chunk): string
+    private function decryptChunk(string $chunk, $options): string
     {
         if ($chunk === '') {
             return '';
@@ -81,7 +85,7 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
             $chunk,
             'AES-256-CBC',
             $this->cipherKey,
-            OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING,
+            $options,
             $this->currentIv
         );
 
@@ -94,26 +98,5 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
         $this->currentIv = substr($chunk, -self::BLOCK_SIZE);
 
         return $decrypted;
-    }
-
-    private function removePadding(string $data): string
-    {
-        $len = mb_strlen($data, '8bit');
-        if ($len === 0) {
-            return '';
-        }
-
-        $padLength = ord($data[$len - 1]);
-        if ($padLength > self::BLOCK_SIZE || $padLength <= 0) {
-            throw new DecryptionException("Invalid padding");
-        }
-
-        for ($i = 1; $i <= $padLength; $i++) {
-            if (ord($data[$len - $i]) !== $padLength) {
-                throw new DecryptionException("Invalid padding");
-            }
-        }
-
-        return substr($data, 0, -$padLength);
     }
 }
