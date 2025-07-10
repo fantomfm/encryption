@@ -46,7 +46,7 @@ trait StreamDecoratorTrait
 
     public function eof(): bool
     {
-        return $this->sourceEof && empty($this->buffer);
+        return $this->sourceEof && $this->buffer === '';
     }
 
     public function isSeekable(): bool

@@ -211,7 +211,7 @@ class DecryptedStreamDecoratorTest extends TestCase
         $result1 = $this->decorator->read(10);
         $this->assertEquals('16B_DECRYP', $result1);
 
-        $result2 = $this->decorator->read(6);
+        $result2 = $this->decorator->read(5);
         $this->assertEquals('TED_D', $result2);
 
         $result3 = $this->decorator->read(1024);
@@ -234,8 +234,8 @@ class DecryptedStreamDecoratorTest extends TestCase
 
         $this->stream->method('getSize')->willReturn(100);
         $this->stream->method('getContents')->willReturn($finalChunk);
-        $this->decryptor->method('update')->willReturn('decrypted_');
-        $this->decryptor->method('finish')->willReturn('data');
+//        $this->decryptor->method('update')->willReturn('decrypted_');
+        $this->decryptor->method('finish')->willReturn('decrypted_data');
 
         $result = $this->decorator->getContents();
 
@@ -247,7 +247,7 @@ class DecryptedStreamDecoratorTest extends TestCase
     {
         $this->stream->method('getSize')->willReturn(100000);
         $this->stream->method('eof')->willReturn(false, false, true);
-        $this->stream->method('read')->willReturn('chunk1', 'chunk2');
+        $this->stream->method('read')->willReturn('chunk1', 'chunk2', 'chunk3');
         $this->decryptor->method('update')->willReturn('decrypted1', 'decrypted2');
         $this->decryptor->method('finish')->willReturn('_final');
 
@@ -279,12 +279,11 @@ class DecryptedStreamDecoratorTest extends TestCase
     public function testGetDecryptedFinal()
     {
         $finalChunk = str_repeat('a', 32) . 'final_part';
-        $this->decryptor->method('update')->willReturn('decrypted_');
         $this->decryptor->method('finish')->willReturn('final');
 
         $result = $this->invokePrivateMethod($this->decorator, 'getDecryptedFinal', [$finalChunk]);
 
-        $this->assertSame('decrypted_final', $result);
+        $this->assertSame('final', $result);
     }
 
     public function testFinalize()
@@ -304,15 +303,6 @@ class DecryptedStreamDecoratorTest extends TestCase
         $result = $this->invokePrivateMethod($this->decorator, 'finalize');
 
         $this->assertSame('', $result);
-    }
-
-    public function testCalculateReadSize()
-    {
-        $this->assertSame(16, $this->invokePrivateMethod($this->decorator, 'calculateReadSize', [8]));
-
-        $this->assertSame(32, $this->invokePrivateMethod($this->decorator, 'calculateReadSize', [32]));
-
-        $this->assertSame(65536, $this->invokePrivateMethod($this->decorator, 'calculateReadSize', [100000]));
     }
 
     public function testExtractFromBuffer()

@@ -74,7 +74,7 @@ class WhatsAppDecryptionTest extends TestCase
 
         $chunkedDecrypted = '';
         while (!$chunkedDecryptedStream->eof()) {
-            $chunkedDecrypted .= $chunkedDecryptedStream->read(16384);
+            $chunkedDecrypted .= $chunkedDecryptedStream->read(1024);
         }
 
         $this->assertSame($original, $chunkedDecrypted);

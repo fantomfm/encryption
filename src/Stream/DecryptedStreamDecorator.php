@@ -45,27 +45,25 @@ class DecryptedStreamDecorator implements StreamInterface
             return '';
         }
 
-        $readSize = $this->calculateReadSize($length);
-
         if (mb_strlen($this->buffer, '8bit') >= $length) {
             return $this->extractFromBuffer($length);
         }
 
-        while (mb_strlen($this->buffer, '8bit') < $length && !$this->stream->eof()) {
-            $chunk = $this->stream->read($readSize);
+        while (mb_strlen($this->buffer, '8bit') < $length && !$this->sourceEof) {
+            $chunk = $this->stream->read($this->chunkSize);
 
-            if (empty($chunk)) {
+            if ($chunk === '' || $this->stream->eof()) {
                 $this->sourceEof = true;
-                $this->buffer .= $this->finalize();
+                $this->buffer .= $this->getDecryptedFinal($chunk);
                 break;
             }
 
-            if ($this->stream->eof()) {
-                $this->sourceEof = true;
-                $this->buffer .= $this->getDecryptedFinal($chunk);
-            } else {
+//            if ($this->stream->eof()) {
+//                $this->sourceEof = true;
+//                $this->buffer .= $this->getDecryptedFinal($chunk);
+//            } else {
                 $this->buffer .= $this->decryptor->update($chunk);
-            }
+//            }
         }
 
         return $this->extractFromBuffer($length);
@@ -97,16 +95,10 @@ class DecryptedStreamDecorator implements StreamInterface
         return $result;
     }
 
-    private function calculateReadSize(int $requested): int
-    {
-        return min(
-            max($requested, $this->blockSize),
-            $this->chunkSize
-        );
-    }
-
     private function extractFromBuffer(int $length): string
     {
+        $available = mb_strlen($this->buffer, '8bit');
+        $length = min($length, $available);
         $result = substr($this->buffer, 0, $length);
 
         if ($result === false) {
@@ -114,28 +106,28 @@ class DecryptedStreamDecorator implements StreamInterface
         }
 
         $this->buffer = substr($this->buffer, $length);
-        $this->position += mb_strlen($result, '8bit');
+        $this->position += $length;
 
         return $result;
     }
 
     private function getDecryptedFinal(string $finalChunk): string
     {
-        $offset = $this->getFinalOffsetSize();
-        $chunkLength = mb_strlen($finalChunk, '8bit');
-
-        if ($chunkLength < $offset) {
+//        $offset = $this->getFinalOffsetSize();
+//        $chunkLength = mb_strlen($finalChunk, '8bit');
+//
+//        if ($chunkLength < $offset) {
             try {
                 return $this->finalize($finalChunk);
             } catch (DecryptionException $e) {
-                throw new StreamException('Final chunk is too small for decryption');
+                throw new StreamException('Failed to decrypt final chunk: ' . $e->getMessage());
             }
-        }
-
-        $encrypted = substr($finalChunk, 0, -$offset);
-        $encryptedFinal = substr($finalChunk, -$offset);
-
-        return $this->decryptor->update($encrypted) . $this->finalize($encryptedFinal);
+//        }
+//
+//        $encrypted = substr($finalChunk, 0, -$offset);
+//        $encryptedFinal = substr($finalChunk, -$offset);
+//
+//        return $this->decryptor->update($encrypted) . $this->finalize($encryptedFinal);
     }
 
     private function getFinalOffsetSize(): int
