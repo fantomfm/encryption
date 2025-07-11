@@ -66,7 +66,7 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
             throw new InvalidMacException("MAC verification failed");
         }
 
-        return rtrim($decrypted, "\x00..\x1F");//$this->removePadding($decrypted);
+        return $this->removePadding($decrypted);
     }
 
     private function decryptChunk(string $chunk, $options): string
@@ -98,5 +98,25 @@ class WhatsAppMediaDecryptor extends WhatsAppMediaCipher
         $this->currentIv = substr($chunk, -self::BLOCK_SIZE);
 
         return $decrypted;
+    }
+
+    private function removePadding(string $data): string
+    {
+        $length = mb_strlen($data, '8bit');
+        if ($length === 0) {
+            return '';
+        }
+
+        $lastByte = ord($data[$length - 1]);
+
+        if ($lastByte > 0 && $lastByte <= self::BLOCK_SIZE) {
+            $padding = str_repeat(chr($lastByte), $lastByte);
+
+            if (substr($data, -$lastByte) === $padding) {
+                return substr($data, 0, -$lastByte);
+            }
+        }
+
+        return $data;
     }
 }
